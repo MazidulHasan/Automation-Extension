@@ -18,14 +18,21 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Listen for messages from content script and popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('📨 Background received message:', message);
+    console.log('📨 Background received message:', message.action, '| tabId:', message.tabId || sender.tab?.id);
+
+    // Resolve the tab id: popup sends message.tabId; content script has sender.tab.id
+    const tabId = message.tabId !== undefined ? message.tabId : sender.tab?.id;
 
     if (message.action === 'startRecording') {
-        handleStartRecording(sender.tab.id).then(sendResponse);
+        if (!tabId) {
+            sendResponse({ success: false, error: 'No active tab id available' });
+            return true;
+        }
+        handleStartRecording(tabId).then(sendResponse);
         return true;
     }
     else if (message.action === 'stopRecording') {
-        handleStopRecording(sender.tab.id).then(sendResponse);
+        handleStopRecording(tabId).then(sendResponse);
         return true;
     }
     else if (message.action === 'getRecordingState') {
@@ -37,7 +44,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
     else if (message.action === 'clearSteps') {
-        handleClearSteps(sender.tab.id).then(sendResponse);
+        handleClearSteps(tabId).then(sendResponse);
         return true;
     }
     else if (message.action === 'stepRecorded') {
@@ -200,26 +207,38 @@ async function handleDeleteStep(stepId) {
 }
 
 /**
- * Inject content script into tab
+ * Inject content script into tab.
+ * Validates the tab URL so we give a clear error on chrome:// pages,
+ * pings first to skip redundant injection, then waits for scripts to settle.
  */
 async function injectContentScript(tabId) {
     try {
-        // Check if content script is already injected
-        try {
-            await chrome.tabs.sendMessage(tabId, { action: 'ping' });
-            console.log('Content script already injected');
-            return;
-        } catch (error) {
-            // Content script not injected, proceed with injection
+        // Verify it is an injectable page
+        const tab = await chrome.tabs.get(tabId);
+        const url = tab.url || '';
+        if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://')) {
+            throw new Error(`Cannot record on this page type (${url.split(':')[0]}://). Navigate to an http/https page first.`);
         }
 
-        // Inject content script
+        // Ping to check if content script is already alive
+        try {
+            await chrome.tabs.sendMessage(tabId, { action: 'ping' });
+            console.log('✅ Content script already active');
+            return; // Already present — nothing to do
+        } catch (_pingErr) {
+            console.log('⚙️ Content script not found, injecting...');
+        }
+
+        // Inject both scripts
         await chrome.scripting.executeScript({
             target: { tabId: tabId },
             files: ['selectorEngine.js', 'content.js']
         });
 
-        console.log('✅ Content script injected');
+        // Brief pause so injected scripts can finish initializing
+        await new Promise(resolve => setTimeout(resolve, 250));
+
+        console.log('✅ Content script injected successfully');
     } catch (error) {
         console.error('❌ Error injecting content script:', error);
         throw error;

@@ -1,5 +1,7 @@
 /**
  * Exporter - Generates test code in multiple formats
+ * Supports: CSV (Manual), Playwright, Selenium, JSON, BDD/Gherkin, Excel (.xlsx)
+ * Includes assertion steps (visibility, text, value)
  */
 
 const Exporter = {
@@ -12,23 +14,77 @@ const Exporter = {
 
         steps.forEach((step, index) => {
             const stepNo = index + 1;
-            const action = this.getActionType(step.eventType);
+            const action = this.getActionType(step.eventType, step.assertionType);
             const element = this.getElementDescription(step);
             const locator = step.element?.xpath?.relative || step.element?.css || 'N/A';
-            const testData = step.value || 'N/A';
+            const testData = step.eventType === 'assertion'
+                ? (step.value !== null && step.value !== undefined ? String(step.value) : 'N/A')
+                : (step.value || 'N/A');
             const expectedResult = this.getExpectedResult(step);
 
             rows.push([
                 stepNo,
                 action,
-                element,
-                `"${locator}"`,
-                testData,
-                expectedResult
+                this.csvEscape(element),
+                this.csvEscape(locator),
+                this.csvEscape(String(testData)),
+                this.csvEscape(expectedResult)
             ]);
         });
 
         return rows.map(row => row.join(',')).join('\n');
+    },
+
+    /**
+     * Build structured rows for both CSV and Excel (shared logic)
+     */
+    buildManualTestRows(steps) {
+        const headers = ['Step No', 'Action', 'Element', 'Locator', 'Test Data', 'Expected Result'];
+        const rows = [headers];
+
+        steps.forEach((step, index) => {
+            const stepNo = index + 1;
+            const action = this.getActionType(step.eventType, step.assertionType);
+            const element = this.getElementDescription(step);
+            const locator = step.element?.xpath?.relative || step.element?.css || 'N/A';
+            const testData = step.eventType === 'assertion'
+                ? (step.value !== null && step.value !== undefined ? String(step.value) : 'N/A')
+                : (step.value !== null && step.value !== undefined ? String(step.value) : 'N/A');
+            const expectedResult = this.getExpectedResult(step);
+
+            rows.push([String(stepNo), action, element, locator, testData, expectedResult]);
+        });
+
+        return rows;
+    },
+
+    /**
+     * Export as Excel (.xlsx) using SheetJS
+     */
+    exportExcel(steps) {
+        if (typeof XLSX === 'undefined') {
+            throw new Error('SheetJS (XLSX) library not loaded');
+        }
+
+        const rows = this.buildManualTestRows(steps);
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+
+        // Column widths
+        ws['!cols'] = [
+            { wch: 8 },   // Step No
+            { wch: 22 },  // Action
+            { wch: 30 },  // Element
+            { wch: 40 },  // Locator
+            { wch: 25 },  // Test Data
+            { wch: 40 },  // Expected Result
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Test Steps');
+
+        // Return as array buffer
+        return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     },
 
     /**
@@ -53,11 +109,14 @@ const Exporter = {
             }
         });
 
-        // Add final assertion
-        const lastStep = steps[steps.length - 1];
-        if (lastStep && lastStep.url) {
-            testBody += `  // Verify final URL\n`;
-            testBody += `  await expect(page).toHaveURL('${lastStep.url}');\n`;
+        // Add final URL assertion (only if no explicit assertion steps)
+        const hasExplicitAssertions = steps.some(s => s.eventType === 'assertion');
+        if (!hasExplicitAssertions) {
+            const lastStep = steps[steps.length - 1];
+            if (lastStep && lastStep.url) {
+                testBody += `  // Verify final URL\n`;
+                testBody += `  await expect(page).toHaveURL('${lastStep.url}');\n`;
+            }
         }
 
         testBody += `});\n`;
@@ -66,10 +125,15 @@ const Exporter = {
     },
 
     /**
-     * Generate Playwright step code
+     * Generate Playwright step code (including assertions)
      */
     generatePlaywrightStep(step) {
-        const { eventType, element, value } = step;
+        const { eventType, assertionType, element, value } = step;
+
+        // Handle assertion steps
+        if (eventType === 'assertion') {
+            return this.generatePlaywrightAssertion(step);
+        }
 
         if (!element && eventType !== 'navigation' && eventType !== 'scroll') {
             return null;
@@ -116,6 +180,36 @@ const Exporter = {
     },
 
     /**
+     * Generate Playwright assertion code
+     */
+    generatePlaywrightAssertion(step) {
+        const { assertionType, element, value } = step;
+        if (!element) return null;
+
+        const locator = element?.playwright || `page.locator('${element?.css}')`;
+
+        switch (assertionType) {
+            case 'visibility':
+                return `await expect(${locator}).toBeVisible();`;
+
+            case 'text':
+                if (value !== null && value !== undefined && value !== '') {
+                    return `await expect(${locator}).toHaveText('${this.escapeString(value)}');`;
+                }
+                return `await expect(${locator}).toBeVisible();`;
+
+            case 'value':
+                if (value !== null && value !== undefined) {
+                    return `await expect(${locator}).toHaveValue('${this.escapeString(value)}');`;
+                }
+                return `await expect(${locator}).toBeVisible();`;
+
+            default:
+                return `await expect(${locator}).toBeVisible();`;
+        }
+    },
+
+    /**
      * Export as Selenium Java Test
      */
     exportSelenium(steps) {
@@ -124,17 +218,23 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.support.ui.Select;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.AfterMethod;
+import java.time.Duration;
 
 public class RecordedTest {
     private WebDriver driver;
+    private WebDriverWait wait;
 
     @BeforeMethod
     public void setUp() {
         driver = new ChromeDriver();
         driver.manage().window().maximize();
+        wait = new WebDriverWait(driver, Duration.ofSeconds(10));
     }
 
     @Test
@@ -170,10 +270,15 @@ public class RecordedTest {
     },
 
     /**
-     * Generate Selenium step code
+     * Generate Selenium step code (including assertions)
      */
     generateSeleniumStep(step) {
-        const { eventType, element, value } = step;
+        const { eventType, assertionType, element, value } = step;
+
+        // Handle assertion steps
+        if (eventType === 'assertion') {
+            return this.generateSeleniumAssertion(step);
+        }
 
         if (!element && eventType !== 'navigation' && eventType !== 'scroll') {
             return null;
@@ -224,6 +329,36 @@ public class RecordedTest {
     },
 
     /**
+     * Generate Selenium assertion code
+     */
+    generateSeleniumAssertion(step) {
+        const { assertionType, element, value } = step;
+        if (!element) return null;
+
+        const locator = element?.selenium || `By.cssSelector("${element?.css}")`;
+
+        switch (assertionType) {
+            case 'visibility':
+                return `Assert.assertTrue(wait.until(ExpectedConditions.visibilityOfElementLocated(${locator})).isDisplayed(), "Element should be visible");`;
+
+            case 'text':
+                if (value !== null && value !== undefined && value !== '') {
+                    return `Assert.assertEquals(driver.findElement(${locator}).getText().trim(), "${this.escapeString(value)}", "Text should match");`;
+                }
+                return `Assert.assertTrue(driver.findElement(${locator}).isDisplayed(), "Element should be visible");`;
+
+            case 'value':
+                if (value !== null && value !== undefined) {
+                    return `Assert.assertEquals(driver.findElement(${locator}).getAttribute("value"), "${this.escapeString(value)}", "Value should match");`;
+                }
+                return `Assert.assertTrue(driver.findElement(${locator}).isDisplayed(), "Element should be visible");`;
+
+            default:
+                return `Assert.assertTrue(driver.findElement(${locator}).isDisplayed(), "Element should be visible");`;
+        }
+    },
+
+    /**
      * Export as JSON
      */
     exportJSON(steps) {
@@ -252,15 +387,28 @@ Scenario: Recorded User Journey\n`;
     },
 
     /**
-     * Generate Gherkin step
+     * Generate Gherkin step (including assertions)
      */
     generateGherkinStep(step, index) {
-        const { eventType, actionName, value, url } = step;
+        const { eventType, assertionType, actionName, value, url } = step;
 
-        // First step is usually Given
         const keyword = index === 0 ? 'Given' :
             (eventType === 'navigation' ? 'When' :
-                (eventType === 'click' || eventType === 'input' || eventType === 'change' ? 'When' : 'And'));
+                (eventType === 'assertion' ? 'Then' :
+                    (eventType === 'click' || eventType === 'input' || eventType === 'change' ? 'When' : 'And')));
+
+        if (eventType === 'assertion') {
+            switch (assertionType) {
+                case 'visibility':
+                    return `${keyword} I should see the element is visible`;
+                case 'text':
+                    return `${keyword} the element should have text "${value}"`;
+                case 'value':
+                    return `${keyword} the element should have value "${value}"`;
+                default:
+                    return `${keyword} I verify the element`;
+            }
+        }
 
         switch (eventType) {
             case 'navigation':
@@ -290,9 +438,18 @@ Scenario: Recorded User Journey\n`;
     },
 
     /**
-     * Helper: Get action type
+     * Helper: Get action type label
      */
-    getActionType(eventType) {
+    getActionType(eventType, assertionType) {
+        if (eventType === 'assertion') {
+            const assertLabels = {
+                visibility: 'Assert Visibility',
+                text: 'Assert Text',
+                value: 'Assert Value'
+            };
+            return assertLabels[assertionType] || 'Assert';
+        }
+
         const actionMap = {
             'click': 'Click',
             'input': 'Enter Text',
@@ -329,7 +486,16 @@ Scenario: Recorded User Journey\n`;
      * Helper: Get expected result
      */
     getExpectedResult(step) {
-        const { eventType, value } = step;
+        const { eventType, assertionType, value } = step;
+
+        if (eventType === 'assertion') {
+            switch (assertionType) {
+                case 'visibility': return 'Element should be visible on the page';
+                case 'text': return `Element text should equal "${value}"`;
+                case 'value': return `Element value should equal "${value}"`;
+                default: return 'Assertion should pass';
+            }
+        }
 
         switch (eventType) {
             case 'click':
@@ -343,6 +509,17 @@ Scenario: Recorded User Journey\n`;
             default:
                 return 'Action should complete successfully';
         }
+    },
+
+    /**
+     * Helper: Escape a CSV cell value
+     */
+    csvEscape(val) {
+        const s = String(val ?? '');
+        if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+            return '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
     },
 
     /**

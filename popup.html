@@ -48,7 +48,10 @@
       <label class="export-label">Export As:</label>
       <div class="export-buttons">
         <button class="btn btn-export" id="exportManual" title="Export as Manual Test Case (CSV)">
-          📋 Manual Test
+          📋 Manual CSV
+        </button>
+        <button class="btn btn-export" id="exportExcel" title="Export as Excel (.xlsx)">
+          📊 Excel
         </button>
         <button class="btn btn-export" id="exportPlaywright" title="Export as Playwright Test">
           🎭 Playwright
@@ -80,6 +83,8 @@
     </div>
   </div>
 
+  <!-- SheetJS for Excel export (loaded from CDN via inline script to work in extension) -->
+  <script src="xlsx.full.min.js"></script>
   <script src="exporter.js"></script>
   <script src="popup.js"></script>
 </body>

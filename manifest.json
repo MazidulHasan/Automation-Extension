@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Test Recorder Pro",
-  "version": "1.0.0",
-  "description": "Professional test recorder that captures user interactions and generates automation code (Playwright, Selenium, Manual Test Cases)",
+  "version": "1.1.0",
+  "description": "Professional test recorder with assertion panel (Playwright codegen style) and Excel/CSV/Playwright/Selenium/BDD export support",
   "permissions": [
     "activeTab",
     "storage",
@@ -38,7 +38,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["icons/*"],
+      "resources": ["icons/*", "xlsx.full.min.js"],
       "matches": ["<all_urls>"]
     }
   ]
