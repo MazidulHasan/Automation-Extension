@@ -355,22 +355,33 @@ function handleAssertionClick(event) {
     event.preventDefault();
     event.stopPropagation();
 
+    const role = getElementRoleLabel(el);
+    const text = SelectorEngine.getElementText(el);
+    const label = SelectorEngine.getAssociatedLabel(el);
+    const name = el.name;
+    const placeholder = el.placeholder;
+    // Base identifier logic similar to input fields
+    const identifier = label || text || placeholder || name || (el.id ? `#${el.id}` : null);
+
+    // Fallback if no specific identifier exists
+    const targetDesc = identifier ? `${role} "${identifier}"` : role;
+
     const type = assertionType;
     let assertValue = null;
     let actionName = '';
 
     switch (type) {
         case 'visibility':
-            actionName = `Assert "${SelectorEngine.getElementText(el) || el.tagName.toLowerCase()}" is visible`;
+            actionName = `Verify ${targetDesc} is visible`;
             assertValue = null;
             break;
         case 'text':
             assertValue = (el.textContent || '').trim();
-            actionName = `Assert text "${assertValue}"`;
+            actionName = `Verify ${targetDesc} contains text "${assertValue}"`;
             break;
         case 'value':
             assertValue = el.value !== undefined ? el.value : (el.getAttribute('value') || '');
-            actionName = `Assert value "${assertValue}"`;
+            actionName = `Verify ${targetDesc} has value "${assertValue}"`;
             break;
     }
 
@@ -568,24 +579,29 @@ function detachEventListeners() {
  */
 function handleClick(event) {
     if (!isRecording) return;
-
-    // Abort if we're in assertion mode (handled separately)
     if (assertionMode) return;
 
     const element = event.target;
-
-    // Ignore clicks on our panels
     if (element.id === 'test-recorder-highlight') return;
     if (element.id === 'test-recorder-assertion-panel' || element.closest?.('#test-recorder-assertion-panel')) return;
 
-    const tagName = element.tagName.toLowerCase();
+    const role = getElementRoleLabel(element);
     const text = SelectorEngine.getElementText(element);
+    const label = SelectorEngine.getAssociatedLabel(element);
+    const aria = element.getAttribute?.('aria-label');
+    const title = element.title;
+    const name = element.name;
+    const id = element.id;
 
-    let actionName = `Click ${tagName}`;
-    if (text) {
-        actionName = `Click "${text}"`;
-    } else if (element.id) {
-        actionName = `Click element with id="${element.id}"`;
+    // Best human-readable identifier: label > text > aria > title > name > id
+    const identifier = label || text || aria || title || name ||
+        (id ? `#${id}` : null);
+
+    let actionName;
+    if (identifier) {
+        actionName = `Click ${role} "${identifier}"`;
+    } else {
+        actionName = `Click ${role}`;
     }
 
     recordStep({
@@ -604,21 +620,26 @@ function handleInput(event) {
 
     const element = event.target;
     const tagName = element.tagName.toLowerCase();
-
     if (tagName !== 'input' && tagName !== 'textarea') return;
 
+    const value = element.value;
     const label = SelectorEngine.getAssociatedLabel(element);
     const placeholder = element.placeholder;
-    const value = element.value;
+    const fieldName = element.name;
+    const fieldId = element.id;
+    const inputType = element.type?.toLowerCase();
 
-    let actionName = `Enter text in ${tagName}`;
-    if (label) {
-        actionName = `Enter "${value}" in "${label}"`;
-    } else if (placeholder) {
-        actionName = `Enter "${value}" in field with placeholder "${placeholder}"`;
-    } else if (element.name) {
-        actionName = `Enter "${value}" in field "${element.name}"`;
-    }
+    // Determine field identifier: label > placeholder > name > id > type
+    const fieldIdentifier = label ? `"${label}" field` :
+        placeholder ? `"${placeholder}" field` :
+            fieldName ? `"${fieldName}" field` :
+                fieldId ? `field #${fieldId}` :
+                    inputType ? `${inputType} field` : 'input field';
+
+    // Mask password values
+    const displayValue = inputType === 'password' ? '••••••••' : `"${value}"`;
+
+    const actionName = `Enter ${displayValue} into ${fieldIdentifier}`;
 
     // Debounce input events
     clearTimeout(element._inputTimeout);
@@ -627,7 +648,7 @@ function handleInput(event) {
             eventType: 'input',
             actionName: actionName,
             element: element,
-            value: value
+            value: inputType === 'password' ? '[REDACTED]' : value
         });
     }, 500);
 }
@@ -682,13 +703,20 @@ function handleChange(event) {
 function handleKeypress(event) {
     if (!isRecording) return;
 
-    // Only record Enter key
     if (event.key === 'Enter') {
         const element = event.target;
+        const label = SelectorEngine.getAssociatedLabel(element);
+        const placeholder = element.placeholder;
+        const name = element.name;
+
+        // Give context about WHERE Enter was pressed
+        const context = label ? ` in "${label}" field` :
+            placeholder ? ` in "${placeholder}" field` :
+                name ? ` in "${name}" field` : '';
 
         recordStep({
             eventType: 'keypress',
-            actionName: `Press Enter key`,
+            actionName: `Press Enter key${context}`,
             element: element,
             value: 'Enter'
         });
@@ -702,14 +730,16 @@ let scrollTimeout;
 function handleScroll(event) {
     if (!isRecording) return;
 
-    // Debounce scroll events
     clearTimeout(scrollTimeout);
     scrollTimeout = setTimeout(() => {
+        const y = window.scrollY;
+        const x = window.scrollX;
+        const direction = y > 0 ? 'down' : 'up';
         recordStep({
             eventType: 'scroll',
-            actionName: `Scroll to position (${window.scrollX}, ${window.scrollY})`,
+            actionName: `Scroll ${direction} — page position X:${x}, Y:${y}`,
             element: null,
-            value: { x: window.scrollX, y: window.scrollY }
+            value: { x, y }
         });
     }, 1000);
 }
@@ -735,13 +765,44 @@ function handleMouseMove(event) {
  */
 function handleBeforeUnload(event) {
     if (!isRecording) return;
-
     recordStep({
         eventType: 'navigation',
-        actionName: `Navigate away from ${window.location.href}`,
+        actionName: `Navigate away from "${document.title || window.location.href}" (${window.location.href})`,
         element: null,
         value: null
     });
+}
+
+/**
+ * Return a human-readable role label for an element (used in action names).
+ */
+function getElementRoleLabel(element) {
+    const tag = element.tagName.toLowerCase();
+    const type = (element.type || '').toLowerCase();
+    const role = element.getAttribute?.('role');
+
+    if (role) return role;
+    if (tag === 'button') return 'button';
+    if (tag === 'a') return 'link';
+    if (tag === 'select') return 'dropdown';
+    if (tag === 'textarea') return 'text area';
+    if (tag === 'input') {
+        if (type === 'submit') return 'Submit button';
+        if (type === 'button') return 'button';
+        if (type === 'checkbox') return 'checkbox';
+        if (type === 'radio') return 'radio button';
+        if (type === 'password') return 'password field';
+        if (type === 'email') return 'email field';
+        if (type === 'search') return 'search field';
+        if (type === 'file') return 'file input';
+        return 'input field';
+    }
+    if (tag === 'img') return 'image';
+    if (tag === 'label') return 'label';
+    if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tag)) return 'heading';
+    if (tag === 'li') return 'list item';
+    if (tag === 'td' || tag === 'th') return 'table cell';
+    return tag; // fallback: raw tag name
 }
 
 /**
