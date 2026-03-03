@@ -20,6 +20,9 @@ async function initialize() {
 
     // Start periodic updates
     startPeriodicUpdates();
+
+    // Show Groq key status
+    await refreshApiKeyStatus();
 }
 
 /**
@@ -30,6 +33,10 @@ function setupEventListeners() {
     document.getElementById('stopRecording').addEventListener('click', handleStopRecording);
     document.getElementById('clearSteps').addEventListener('click', handleClearSteps);
 
+    // Settings toggle
+    document.getElementById('settingsToggle').addEventListener('click', toggleSettings);
+    document.getElementById('saveApiKey').addEventListener('click', handleSaveApiKey);
+
     // Export buttons
     document.getElementById('exportManual').addEventListener('click', () => handleExport('manual'));
     document.getElementById('exportExcel').addEventListener('click', () => handleExport('excel'));
@@ -37,6 +44,9 @@ function setupEventListeners() {
     document.getElementById('exportSelenium').addEventListener('click', () => handleExport('selenium'));
     document.getElementById('exportJson').addEventListener('click', () => handleExport('json'));
     document.getElementById('exportBdd').addEventListener('click', () => handleExport('bdd'));
+
+    // AI Flow Summary
+    document.getElementById('exportFlowSummary').addEventListener('click', handleExportFlowSummary);
 }
 
 /**
@@ -449,3 +459,114 @@ window.addEventListener('unload', () => {
         clearInterval(updateInterval);
     }
 });
+
+// ─────────────────────────────────────────────────────────
+//  Settings Panel (Groq API Key)
+// ─────────────────────────────────────────────────────────
+
+function toggleSettings() {
+    const panel = document.getElementById('settingsPanel');
+    const isHidden = panel.style.display === 'none' || !panel.style.display;
+    panel.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) refreshApiKeyStatus();
+}
+
+async function handleSaveApiKey() {
+    const input = document.getElementById('groqApiKeyInput');
+    const status = document.getElementById('apiKeyStatus');
+    const key = input.value.trim();
+
+    if (!key) {
+        status.textContent = '⚠️ Please enter a key first.';
+        status.className = 'api-key-status unset';
+        return;
+    }
+
+    try {
+        await GroqService.saveApiKey(key);
+        input.value = '';
+        status.textContent = '✅ API key saved securely.';
+        status.className = 'api-key-status set';
+    } catch (err) {
+        status.textContent = '❌ Failed to save key: ' + err.message;
+        status.className = 'api-key-status unset';
+    }
+}
+
+async function refreshApiKeyStatus() {
+    const status = document.getElementById('apiKeyStatus');
+    if (!status) return;
+    const key = await GroqService.loadApiKey();
+    if (key) {
+        status.textContent = `✅ API key is set (${key.slice(0, 8)}…)`;
+        status.className = 'api-key-status set';
+    } else {
+        status.textContent = '⚠️ No API key saved — click ⚙️ to add one.';
+        status.className = 'api-key-status unset';
+    }
+}
+
+// ─────────────────────────────────────────────────────────
+//  AI Flow Summary Export
+// ─────────────────────────────────────────────────────────
+
+async function handleExportFlowSummary() {
+    if (recordedSteps.length === 0) {
+        alert('No steps to export. Please record some steps first.');
+        return;
+    }
+
+    const btn = document.getElementById('exportFlowSummary');
+    const status = document.getElementById('flowSummaryStatus');
+
+    // Show loading state
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Generating…';
+    status.textContent = '';
+    status.className = 'flow-status';
+
+    let aiSummary = null;
+
+    try {
+        const apiKey = await GroqService.loadApiKey();
+
+        if (apiKey) {
+            status.textContent = '🤖 Calling Groq AI…';
+            status.className = 'flow-status loading';
+            try {
+                aiSummary = await GroqService.summarizeSteps(recordedSteps, apiKey);
+                status.textContent = '✅ AI summary ready!';
+                status.className = 'flow-status success';
+            } catch (groqErr) {
+                console.warn('Groq API call failed, using auto-summary:', groqErr);
+                status.textContent = `⚠️ AI failed — using auto-summary`;
+                status.className = 'flow-status error';
+            }
+        } else {
+            status.textContent = 'ℹ️ No API key — using auto-summary';
+            status.className = 'flow-status loading';
+        }
+
+        // Generate Excel (AI or auto)
+        const xlsxData = Exporter.exportFlowSummaryExcel(recordedSteps, aiSummary);
+        downloadBinaryFile(
+            xlsxData,
+            'flow-summary.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+
+        setTimeout(() => {
+            status.textContent = '';
+            status.className = 'flow-status';
+        }, 3000);
+
+    } catch (err) {
+        console.error('Flow summary export failed:', err);
+        status.textContent = '❌ Export failed: ' + err.message;
+        status.className = 'flow-status error';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '🤖 Export Flow Summary (Excel)';
+    }
+}
+

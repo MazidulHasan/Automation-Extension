@@ -15,6 +15,12 @@ let assertionType = null; // 'visibility' | 'text' | 'value'
 let floatingPanel = null;
 let assertionTargetElement = null;
 
+// Floating panel position & UI state (persisted per session)
+let panelX = null; // null = auto-center on first show
+let panelY = 16;
+let panelMinimized = false;
+let panelHidden = false;
+
 // Initialize
 initialize();
 
@@ -49,168 +55,186 @@ function createHighlightOverlay() {
 function createFloatingPanel() {
     if (floatingPanel) return;
 
+    // Calculate initial X to center the panel (width ~230px)
+    const initX = panelX !== null ? panelX : Math.max(0, Math.round(window.innerWidth / 2 - 115));
+    const initY = panelY;
+
+    // Inject shared styles (idempotent)
+    if (!document.getElementById('trp-assertion-styles')) {
+        const styleEl = document.createElement('style');
+        styleEl.id = 'trp-assertion-styles';
+        styleEl.textContent = `
+            @keyframes trp-pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(239,68,68,0.7)} 70%{opacity:1;box-shadow:0 0 0 6px rgba(239,68,68,0)} }
+            @keyframes trp-spin  { to { transform: rotate(360deg); } }
+            #trp-recording-dot { animation: trp-pulse 1.4s ease infinite; }
+            .trp-assert-btn {
+                display:flex; align-items:center; gap:8px; width:100%;
+                padding:8px 12px;
+                background:rgba(99,102,241,0.08);
+                border:1px solid rgba(99,102,241,0.2);
+                border-radius:8px; color:#c7d2fe; font-size:12px;
+                font-weight:500; cursor:pointer; text-align:left;
+                transition:all 0.15s ease;
+            }
+            .trp-assert-btn:hover {
+                background:rgba(99,102,241,0.2);
+                border-color:rgba(99,102,241,0.5);
+                color:#e0e7ff; transform:translateX(2px);
+            }
+            .trp-assert-btn.trp-active {
+                background:rgba(99,102,241,0.35)!important;
+                border-color:#6366f1!important; color:#fff!important;
+                box-shadow:0 0 0 2px rgba(99,102,241,0.2);
+            }
+            .trp-icon-btn {
+                background:none; border:none; cursor:pointer;
+                color:#94a3b8; font-size:13px; padding:2px 5px;
+                border-radius:4px; line-height:1; transition:all 0.15s;
+                display:flex; align-items:center; justify-content:center;
+            }
+            .trp-icon-btn:hover { background:rgba(255,255,255,0.12); color:#e0e7ff; }
+            #test-recorder-assertion-highlight {
+                position:fixed;
+                border:2px solid #22c55e;
+                background:rgba(34,197,94,0.08);
+                pointer-events:none; z-index:2147483646;
+                box-shadow:0 0 0 3px rgba(34,197,94,0.25);
+                border-radius:3px;
+            }
+        `;
+        document.head.appendChild(styleEl);
+    }
+
     floatingPanel = document.createElement('div');
     floatingPanel.id = 'test-recorder-assertion-panel';
+    floatingPanel.style.cssText = `
+        position: fixed;
+        top: ${initY}px;
+        left: ${initX}px;
+        z-index: 2147483647;
+        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+        border: 1px solid rgba(99,102,241,0.4);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.15), inset 0 1px 0 rgba(255,255,255,0.05);
+        min-width: 230px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        backdrop-filter: blur(12px);
+        overflow: hidden;
+        transition: box-shadow 0.2s;
+    `;
+
     floatingPanel.innerHTML = `
+        <!-- ── Header / Drag Handle ── -->
         <div id="trp-drag-handle" style="
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 14px 8px;
-            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
-            border-radius: 12px 12px 0 0;
-            cursor: grab;
-            user-select: none;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display:flex; align-items:center; gap:8px;
+            padding:9px 10px 9px 14px;
+            background:linear-gradient(135deg,#1e1b4b 0%,#312e81 100%);
+            cursor:grab; user-select:none;
+            border-bottom:1px solid rgba(255,255,255,0.08);
         ">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2.5">
-                <circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>
-            </svg>
-            <span style="color:#e0e7ff;font-size:12px;font-weight:700;letter-spacing:0.5px;">TEST RECORDER PRO</span>
-            <span style="
-                margin-left:auto;
-                background:rgba(99,102,241,0.3);
-                color:#a5b4fc;
-                font-size:9px;
-                padding:2px 6px;
-                border-radius:20px;
-                font-weight:600;
-                letter-spacing:0.5px;
-            ">ASSERT</span>
+            <!-- Record dot (hidden by default) -->
+            <span id="trp-recording-dot" style="
+                display:none; width:9px; height:9px; flex-shrink:0;
+                border-radius:50%; background:#ef4444;
+            "></span>
+            <span style="color:#e0e7ff;font-size:11px;font-weight:700;letter-spacing:0.6px;white-space:nowrap;">TEST RECORDER PRO</span>
+            <span id="trp-rec-label" style="
+                display:none; margin-left:2px;
+                background:rgba(239,68,68,0.2); color:#fca5a5;
+                font-size:9px; padding:1px 6px; border-radius:20px; font-weight:700;
+                letter-spacing:0.4px; white-space:nowrap;
+            ">REC</span>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:2px;">
+                <!-- Minimize toggle -->
+                <button id="trp-minimize-btn" class="trp-icon-btn" title="Minimize / Expand">▼</button>
+                <!-- Close -->
+                <button id="trp-close-btn" class="trp-icon-btn" title="Hide panel">✕</button>
+            </div>
         </div>
-        <div style="padding: 10px 12px 12px; display:flex; flex-direction:column; gap:6px;">
+
+        <!-- ── Body (collapsible) ── -->
+        <div id="trp-panel-body" style="padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;">
             <div style="color:#94a3b8;font-size:10px;font-weight:600;letter-spacing:0.5px;margin-bottom:2px;">ASSERTION TYPE</div>
-            <button id="trp-assert-visibility" class="trp-assert-btn" data-type="visibility" title="Assert element is visible">
-                <span>👁️</span> Assert Visibility
-            </button>
-            <button id="trp-assert-text" class="trp-assert-btn" data-type="text" title="Assert element text content">
-                <span>🔤</span> Assert Text
-            </button>
-            <button id="trp-assert-value" class="trp-assert-btn" data-type="value" title="Assert element value (inputs)">
-                <span>✏️</span> Assert Value
-            </button>
+            <button class="trp-assert-btn" data-type="visibility" title="Assert element is visible"><span>👁️</span> Assert Visibility</button>
+            <button class="trp-assert-btn" data-type="text"       title="Assert element text content"><span>🔤</span> Assert Text</button>
+            <button class="trp-assert-btn" data-type="value"      title="Assert input value"><span>✏️</span> Assert Value</button>
             <div id="trp-status" style="
-                margin-top:4px;
-                color:#64748b;
-                font-size:10px;
-                text-align:center;
-                padding:4px;
-                border-radius:6px;
-                background:rgba(0,0,0,0.2);
-                min-height:18px;
-                transition: all 0.2s;
+                margin-top:4px; color:#64748b; font-size:10px;
+                text-align:center; padding:4px; border-radius:6px;
+                background:rgba(0,0,0,0.2); min-height:18px; transition:all 0.2s;
             ">Click an assertion type, then click an element</div>
         </div>
     `;
 
-    // Panel styles
-    floatingPanel.style.cssText = `
-        position: fixed;
-        top: 16px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 2147483647;
-        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-        border: 1px solid rgba(99, 102, 241, 0.4);
-        border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
-        min-width: 220px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        backdrop-filter: blur(12px);
-    `;
-
-    // Inject button styles
-    const styleEl = document.createElement('style');
-    styleEl.id = 'trp-assertion-styles';
-    styleEl.textContent = `
-        .trp-assert-btn {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            width: 100%;
-            padding: 8px 12px;
-            background: rgba(99, 102, 241, 0.08);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 8px;
-            color: #c7d2fe;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            text-align: left;
-            transition: all 0.15s ease;
-        }
-        .trp-assert-btn:hover {
-            background: rgba(99, 102, 241, 0.2);
-            border-color: rgba(99, 102, 241, 0.5);
-            color: #e0e7ff;
-            transform: translateX(2px);
-        }
-        .trp-assert-btn.trp-active {
-            background: rgba(99, 102, 241, 0.35) !important;
-            border-color: #6366f1 !important;
-            color: #fff !important;
-            box-shadow: 0 0 0 2px rgba(99,102,241,0.2);
-        }
-        #test-recorder-assertion-highlight {
-            position: absolute;
-            border: 2px solid #22c55e;
-            background: rgba(34, 197, 94, 0.1);
-            pointer-events: none;
-            z-index: 2147483646;
-            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
-            border-radius: 3px;
-            transition: all 0.1s ease;
-        }
-    `;
-    document.head.appendChild(styleEl);
-
     document.body.appendChild(floatingPanel);
 
-    // Make draggable
+    // ── Drag ──
     makeDraggable(floatingPanel, document.getElementById('trp-drag-handle'));
 
-    // Assertion button listeners
+    // ── Minimize ──
+    document.getElementById('trp-minimize-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        panelMinimized = !panelMinimized;
+        const body = document.getElementById('trp-panel-body');
+        const btn = document.getElementById('trp-minimize-btn');
+        body.style.display = panelMinimized ? 'none' : 'flex';
+        btn.textContent = panelMinimized ? '▲' : '▼';
+        floatingPanel.style.borderRadius = panelMinimized ? '12px' : '12px';
+    });
+
+    // ── Close ──
+    document.getElementById('trp-close-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        panelHidden = true;
+        floatingPanel.style.display = 'none';
+        deactivateAssertionMode();
+    });
+
+    // ── Assertion buttons ──
     floatingPanel.querySelectorAll('.trp-assert-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const type = btn.dataset.type;
-            activateAssertionMode(type);
+            activateAssertionMode(btn.dataset.type);
         });
     });
+
+    // Apply persisted minimized state
+    if (panelMinimized) {
+        document.getElementById('trp-panel-body').style.display = 'none';
+        document.getElementById('trp-minimize-btn').textContent = '▲';
+    }
 
     console.log('✅ Floating assertion panel created');
 }
 
 /**
- * Make an element draggable by a handle
+ * Make an element draggable by a handle.
+ * Uses mouse-offset approach — no transform, no jump.
  */
 function makeDraggable(element, handle) {
     let isDragging = false;
-    let startX, startY, startLeft, startTop;
+    let offsetX = 0, offsetY = 0;
 
     handle.addEventListener('mousedown', (e) => {
+        // Ignore clicks on child buttons inside the handle
+        if (e.target.classList.contains('trp-icon-btn')) return;
         isDragging = true;
         handle.style.cursor = 'grabbing';
-        startX = e.clientX;
-        startY = e.clientY;
-
         const rect = element.getBoundingClientRect();
-        // Switch from transform-based centering to absolute positioning
-        element.style.transform = 'none';
-        element.style.left = rect.left + 'px';
-        element.style.top = rect.top + 'px';
-        startLeft = rect.left;
-        startTop = rect.top;
-
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
         e.preventDefault();
     });
 
     document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        element.style.left = Math.max(0, startLeft + dx) + 'px';
-        element.style.top = Math.max(0, startTop + dy) + 'px';
+        const newX = Math.max(0, Math.min(window.innerWidth - 60, e.clientX - offsetX));
+        const newY = Math.max(0, Math.min(window.innerHeight - 40, e.clientY - offsetY));
+        element.style.left = newX + 'px';
+        element.style.top = newY + 'px';
+        // Persist position so it survives show/hide cycles
+        panelX = newX;
+        panelY = newY;
     });
 
     document.addEventListener('mouseup', () => {
@@ -439,6 +463,7 @@ function startRecording() {
 
     attachEventListeners();
     showFloatingPanel();
+    updatePanelRecordingState(true);
 
     // Save state
     chrome.storage.local.set({
@@ -464,11 +489,23 @@ function startRecording() {
 function stopRecording() {
     isRecording = false;
     detachEventListeners();
+    updatePanelRecordingState(false);
     hideFloatingPanel();
 
     chrome.storage.local.set({ isRecording: false });
 
     console.log('⏹ Test Recorder: Recording stopped');
+}
+
+/**
+ * Update the recording indicator dot & REC badge in the floating panel.
+ */
+function updatePanelRecordingState(recording) {
+    const dot = document.getElementById('trp-recording-dot');
+    const label = document.getElementById('trp-rec-label');
+    if (!dot) return;
+    dot.style.display = recording ? 'inline-block' : 'none';
+    if (label) label.style.display = recording ? 'inline-block' : 'none';
 }
 
 /**

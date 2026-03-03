@@ -88,6 +88,120 @@ const Exporter = {
     },
 
     /**
+     * Export Flow Summary as Excel (.xlsx)
+     * Produces a QA-facing, single-row test case sheet — NO locators.
+     * @param {Array}  steps     - Recorded steps array
+     * @param {Object|null} aiSummary - Parsed Groq response (or null for auto-summary)
+     */
+    exportFlowSummaryExcel(steps, aiSummary = null) {
+        if (typeof XLSX === 'undefined') {
+            throw new Error('SheetJS (XLSX) library not loaded');
+        }
+
+        const summary = aiSummary || this.buildAutoSummary(steps);
+
+        // ── Headers ──
+        const headers = [
+            'Test Case ID',
+            'Module / Feature',
+            'Test Case Name',
+            'Preconditions',
+            'Test Steps',
+            'Test Data',
+            'Expected Result',
+            'Priority',
+            'Status',
+            'Notes'
+        ];
+
+        // ── Build test steps text ──
+        const stepsText = Array.isArray(summary.testSteps)
+            ? summary.testSteps.join('\n')
+            : String(summary.testSteps || '');
+
+        // ── Collect test data values from steps ──
+        const testDataValues = steps
+            .filter(s => s.value !== null && s.value !== undefined && s.value !== '' && s.value !== false)
+            .map(s => String(s.value))
+            .filter((v, i, a) => a.indexOf(v) === i) // deduplicate
+            .join(', ');
+
+        const dataRow = [
+            'TC-001',
+            summary.module || 'Web Application',
+            summary.testCaseName || 'Recorded User Flow',
+            summary.preconditions || `Browser open. Navigate to ${steps.find(s => s.url)?.url || 'the application URL'}.`,
+            stepsText,
+            testDataValues || 'N/A',
+            summary.expectedResult || 'Application performs all steps successfully without errors.',
+            summary.priority || 'Medium',
+            '',   // Status — blank for QA to fill
+            ''    // Notes
+        ];
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet([headers, dataRow]);
+
+        // Column widths
+        ws['!cols'] = [
+            { wch: 14 },  // Test Case ID
+            { wch: 22 },  // Module
+            { wch: 38 },  // Test Case Name
+            { wch: 40 },  // Preconditions
+            { wch: 55 },  // Test Steps
+            { wch: 30 },  // Test Data
+            { wch: 45 },  // Expected Result
+            { wch: 10 },  // Priority
+            { wch: 12 },  // Status
+            { wch: 25 },  // Notes
+        ];
+
+        // Enable text wrap for the Test Steps cell (B2 → row 1, col 4 = E2)
+        const stepsCell = ws[XLSX.utils.encode_cell({ r: 1, c: 4 })];
+        if (stepsCell) {
+            stepsCell.s = { alignment: { wrapText: true, vertical: 'top' } };
+        }
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Flow Summary');
+        return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    },
+
+    /**
+     * Auto-generate a flow summary without AI (fallback)
+     */
+    buildAutoSummary(steps) {
+        const firstUrl = steps.find(s => s.url)?.url || '';
+        let domain = '';
+        try { domain = new URL(firstUrl).hostname; } catch (_) { domain = 'Web Application'; }
+
+        // Build step descriptions
+        const actionSteps = steps
+            .filter(s => s.eventType !== 'navigation' || steps.indexOf(s) === 0)
+            .map((s, i) => {
+                if (s.eventType === 'assertion') {
+                    const aType = { visibility: 'is visible', text: `has text "${s.value}"`, value: `has value "${s.value}"` };
+                    return `${i + 1}. Verify element ${aType[s.assertionType] || 'assertion'}`;
+                }
+                return `${i + 1}. ${s.actionName}`;
+            });
+
+        // Collect unique input values for the "test data" field
+        const inputs = steps
+            .filter(s => s.eventType === 'input' && s.value)
+            .map(s => `"${s.value}"`)
+            .filter((v, i, a) => a.indexOf(v) === i);
+
+        return {
+            testCaseName: `User flow on ${domain}`,
+            module: domain,
+            preconditions: `Browser is open. User navigates to: ${firstUrl}`,
+            testSteps: actionSteps,
+            expectedResult: 'All steps complete successfully and the application responds correctly.',
+            priority: 'Medium'
+        };
+    },
+
+    /**
      * Export as Playwright Test
      */
     exportPlaywright(steps) {
