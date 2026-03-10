@@ -152,6 +152,7 @@ body {
 /* Controls */
 .controls {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 16px;
 }
@@ -254,6 +255,20 @@ body {
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 8px;
+}
+
+.export-section > summary::-webkit-details-marker {
+  display: none;
+}
+.export-section > summary::before {
+  content: '▶';
+  font-size: 10px;
+  margin-right: 8px;
+  color: var(--secondary-color);
+  transition: transform 0.2s;
+}
+.export-section[open] > summary::before {
+  transform: rotate(90deg);
 }
 
 .export-buttons {
@@ -656,4 +671,68 @@ body {
   background: rgba(34, 197, 94, 0.12);
   border-color: #22c55e;
   color: #86efac;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  padding: 16px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 320px;
+  box-shadow: var(--shadow-lg);
+  text-align: left;
+}
+.modal-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+/* Group Headers */
+.step-group {
+  margin-bottom: 8px;
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 6px;
+}
+.step-group summary {
+  padding: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #a5b4fc;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  display: flex;
+  align-items: center;
+}
+.step-group summary::-webkit-details-marker {
+  display: none;
+}
+.step-group summary::before {
+  content: '▶';
+  font-size: 10px;
+  margin-right: 8px;
+  color: var(--secondary-color);
+  transition: transform 0.2s;
+}
+.step-group[open] summary::before {
+  transform: rotate(90deg);
+}
+.step-group-content {
+  padding: 0 10px 10px 10px;
 }

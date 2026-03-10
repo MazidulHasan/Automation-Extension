@@ -167,6 +167,42 @@ const Exporter = {
     },
 
     /**
+     * Export Structured AI Steps as Excel (.xlsx)
+     * Takes strictly formatted input from AI structureSteps()
+     */
+    exportStructuredExcel(structuredSteps) {
+        if (typeof XLSX === 'undefined') {
+            throw new Error('SheetJS (XLSX) library not loaded');
+        }
+
+        const headers = ['Step No', 'Action', 'Test Data', 'Expected Result'];
+        const rows = [headers];
+
+        structuredSteps.forEach(step => {
+            rows.push([
+                String(step.stepNo || ''),
+                String(step.action || ''),
+                String(step.testData || ''),
+                String(step.expectedResult || '')
+            ]);
+        });
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+
+        // Styling widths
+        ws['!cols'] = [
+            { wch: 10 },  // Step No
+            { wch: 60 },  // Action
+            { wch: 30 },  // Test Data
+            { wch: 50 },  // Expected Result
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Structured QA Steps');
+        return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    },
+
+    /**
      * Auto-generate a flow summary without AI (fallback)
      */
     buildAutoSummary(steps) {

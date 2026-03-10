@@ -145,6 +145,8 @@ function createFloatingPanel() {
                 letter-spacing:0.4px; white-space:nowrap;
             ">REC</span>
             <div style="margin-left:auto;display:flex;align-items:center;gap:2px;">
+                <!-- Add Section -->
+                <button id="trp-add-section-btn" class="trp-icon-btn" title="Mark new test case boundary" style="color:#a5b4fc; font-size:12px; margin-right:4px;">📁</button>
                 <!-- Stop Recording -->
                 <button id="trp-stop-btn" class="trp-icon-btn" title="Stop Recording & Open Details" style="color:#fca5a5; font-size:12px; margin-right:4px;">⏹</button>
                 <!-- Minimize toggle -->
@@ -184,6 +186,28 @@ function createFloatingPanel() {
         });
     }
 
+    // ── Add Section ──
+    const sectionBtn = document.getElementById('trp-add-section-btn');
+    if (sectionBtn) {
+        sectionBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const name = prompt("Enter a name for the new step section:", "New Test Case");
+            if (name) {
+                chrome.runtime.sendMessage({
+                    action: 'stepRecorded',
+                    step: {
+                        id: 'grp_' + Date.now(),
+                        timestamp: Date.now(),
+                        eventType: 'group',
+                        actionName: name,
+                        element: null,
+                        value: null,
+                        assertionType: null
+                    }
+                });
+            }
+        });
+    }
     // ── Minimize ──
     document.getElementById('trp-minimize-btn').addEventListener('click', (e) => {
         e.stopPropagation();

@@ -105,10 +105,10 @@ Schema:
   "priority": "High | Medium | Low"
 }`,
 
-    /**
-     * Build the user prompt from recorded steps
-     */
     buildPrompt(steps) {
+        // Now handles either an array of objects or an array of strings (simplified manual rows)
+        if (typeof steps === 'string') return steps;
+
         const lines = steps.map((s, i) => {
             const type = s.assertionType ? `[ASSERT ${s.assertionType.toUpperCase()}]` : `[${s.eventType.toUpperCase()}]`;
             const val = s.value !== null && s.value !== undefined ? ` → value: "${s.value}"` : '';
@@ -117,6 +117,88 @@ Schema:
         });
 
         return `Here are the recorded browser steps:\n\n${lines.join('\n')}\n\nGenerate a structured QA test case summary as JSON.`;
+    },
+
+    /**
+     * Structure recorded steps specifically for manual QA consumption.
+     * Outputs a JSON array of precisely cleaned action, data, and expected objects.
+     */
+    async structureSteps(stepsText, apiKey) {
+        if (!stepsText) return [];
+        if (!apiKey) throw new Error('Gemini API key is required.');
+
+        const prompt = `You are a strict QA automation engineer. Convert the following simplified browser recording steps into a perfectly formatted JSON array for manual QA execution. 
+        
+        CRITICAL: Output ONLY a valid JSON array. No markdown, no introductory text, no code blocks like \`\`\`json.
+        
+        Structure of each object in the array:
+        {
+          "stepNo": "Number automatically based on index logic, excluding Group headers",
+          "action": "Clear instructions (e.g. 'Click the Login button', 'Type \"username\" into Email field')",
+          "testData": "Any input values or data typed, empty if none",
+          "expectedResult": "Expected outcome (for assertions) or implicit outcome"
+        }
+
+        If a step is an eventType "group", treat it as a test case divider. Action should be "TEST CASE: [actionName]" and stepNo should be "-".
+
+        Simplified Steps:
+        ${stepsText}`;
+
+        try {
+            const url = `${this.API_URL}?key=${apiKey}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.1,
+                        responseMimeType: "application/json"
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error?.message || `API responded with status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            let text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) throw new Error('Empty response from Gemini.');
+            
+            // Robust JSON extraction
+            text = this.extractJson(text);
+            
+            const parsed = JSON.parse(text);
+            // If it returned an object with a "steps" array, use that
+            if (!Array.isArray(parsed) && Array.isArray(parsed.steps)) return parsed.steps;
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            console.error('Gemini API Error:', error);
+            throw new Error(error.message || 'Failed to generate structured steps with Gemini.');
+        }
+    },
+
+    /**
+     * Clean up model output to ensure it's parseable JSON
+     */
+    extractJson(text) {
+        // Strip markdown backticks
+        text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        // If it still has text around the JSON, try to find the first [ and last ]
+        const start = text.indexOf('[');
+        const end = text.lastIndexOf(']');
+        if (start !== -1 && end !== -1 && end > start) {
+            return text.substring(start, end + 1);
+        }
+        // Try object if array fails
+        const objStart = text.indexOf('{');
+        const objEnd = text.lastIndexOf('}');
+        if (objStart !== -1 && objEnd !== -1 && objEnd > objStart) {
+            return text.substring(objStart, objEnd + 1);
+        }
+        return text;
     }
 };
 

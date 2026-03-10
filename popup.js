@@ -6,6 +6,8 @@
 let isRecording = false;
 let recordedSteps = [];
 let updateInterval = null;
+let lastStepsJson = '';
+let isEditing = false;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', initialize);
@@ -45,15 +47,24 @@ function setupEventListeners() {
     document.getElementById('exportJson').addEventListener('click', () => handleExport('json'));
     document.getElementById('exportBdd').addEventListener('click', () => handleExport('bdd'));
 
-    // Resume Recording
+    // Resume & Grouping
     document.getElementById('resumeRecording').addEventListener('click', handleResumeRecording);
+    document.getElementById('addTestCase').addEventListener('click', handleAddTestCase);
 
     // AI Flow Summary
     document.getElementById('exportFlowSummary').addEventListener('click', handleExportFlowSummary);
     document.getElementById('exportFlowSummaryGemini').addEventListener('click', handleExportFlowSummaryGemini);
     
+    // AI Structured Steps
+    document.getElementById('exportStructuredGroq').addEventListener('click', () => handleExportStructured('groq'));
+    document.getElementById('exportStructuredGemini').addEventListener('click', () => handleExportStructured('gemini'));
+    
     // Gemini Settings
     document.getElementById('saveGeminiApiKey').addEventListener('click', handleSaveGeminiApiKey);
+    
+    // Modal Close hooks
+    document.getElementById('cancelClearBtn').addEventListener('click', handleCancelClear);
+    document.getElementById('confirmClearBtn').addEventListener('click', handleConfirmClear);
 }
 
 /**
@@ -73,10 +84,19 @@ async function loadRecordingState() {
  * Load steps from storage
  */
 async function loadSteps() {
+    if (isEditing) return; // Prevent DOM wiping while a user is typing
+    
     try {
         const response = await chrome.runtime.sendMessage({ action: 'getSteps' });
-        recordedSteps = response.steps || [];
-        renderSteps();
+        const newSteps = response.steps || [];
+        const newStepsJson = JSON.stringify(newSteps);
+        
+        // Prevent aggressive DOM thrashing (freezing)
+        if (newStepsJson !== lastStepsJson || newSteps.length === 0) {
+            recordedSteps = newSteps;
+            lastStepsJson = newStepsJson;
+            renderSteps();
+        }
     } catch (error) {
         console.error('Error loading steps:', error);
     }
@@ -149,7 +169,31 @@ async function handleResumeRecording() {
 }
 
 /**
+ * Handle Add Test Case
+ */
+async function handleAddTestCase() {
+    const testCaseName = prompt("Enter a name for the next test case boundary:", `Test Case ${document.querySelectorAll('summary').length + 1}`);
+    if (!testCaseName) return;
+
+    await chrome.runtime.sendMessage({
+        action: 'stepRecorded',
+        step: {
+            id: 'grp_' + Date.now(),
+            timestamp: Date.now(),
+            eventType: 'group',
+            actionName: testCaseName,
+            element: null,
+            value: null,
+            assertionType: null
+        }
+    });
+    
+    await loadSteps();
+}
+
+/**
  * Handle stop recording
+
  * Routed through background for consistency.
  */
 async function handleStopRecording() {
@@ -172,13 +216,22 @@ async function handleStopRecording() {
 }
 
 /**
- * Handle clear steps
+ * Handle clear steps Modal presentation
+ */
+function handleClearSteps() {
+    document.getElementById('customConfirmModal').style.display = 'flex';
+}
+
+function handleCancelClear() {
+    document.getElementById('customConfirmModal').style.display = 'none';
+}
+
+/**
+ * Confirm clear steps execution
  * Routed through background for consistency.
  */
-async function handleClearSteps() {
-    if (!confirm('Are you sure you want to clear all recorded steps?')) {
-        return;
-    }
+async function handleConfirmClear() {
+    document.getElementById('customConfirmModal').style.display = 'none';
 
     try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -208,6 +261,7 @@ function updateUI() {
     const startBtn = document.getElementById('startRecording');
     const stopBtn = document.getElementById('stopRecording');
     const resumeBtn = document.getElementById('resumeRecording');
+    const addTestCaseBtn = document.getElementById('addTestCase');
     const indicator = document.getElementById('recordingIndicator');
     const stepCount = document.getElementById('stepCount');
 
@@ -215,11 +269,13 @@ function updateUI() {
         startBtn.disabled = true;
         stopBtn.disabled = false;
         resumeBtn.disabled = true;
+        addTestCaseBtn.disabled = false;
         indicator.classList.add('active');
     } else {
         startBtn.disabled = false;
         stopBtn.disabled = true;
         resumeBtn.disabled = recordedSteps.length === 0;
+        addTestCaseBtn.disabled = recordedSteps.length === 0;
         indicator.classList.remove('active');
     }
 
@@ -243,7 +299,50 @@ function renderSteps() {
         return;
     }
 
-    stepsList.innerHTML = recordedSteps.map((step, index) => createStepHTML(step, index)).join('');
+    let finalHtml = '';
+    let currentGroupHtml = '';
+    let inGroup = false;
+    let groupCounter = 0;
+
+    // Check if the first step is a group. If not, start with a default "Recorded Steps 1"
+    const firstStepIsGroup = recordedSteps[0] && recordedSteps[0].eventType === 'group';
+    
+    if (!firstStepIsGroup) {
+        groupCounter++;
+        inGroup = true;
+        finalHtml += `<details class="step-group" open><summary>📁 Recorded Steps ${groupCounter}</summary><div class="step-group-content">`;
+    }
+
+    recordedSteps.forEach((step, index) => {
+        if (step.eventType === 'group') {
+            // Close previous group if exists
+            if (inGroup) {
+                finalHtml += currentGroupHtml + `</div></details>`;
+                currentGroupHtml = '';
+            }
+            inGroup = true;
+            groupCounter++;
+            
+            // Generate a default name if it was an empty name, or use the provided name
+            const groupName = step.actionName || `Recorded Steps ${groupCounter}`;
+            
+            finalHtml += `<details class="step-group" open><summary>📁 ${escapeHtml(groupName)} <button class="step-btn-delete" data-action="delete" data-step-id="${step.id}" style="margin-left:auto; background:none; border:none; padding:0; font-size:11px;">✕</button></summary><div class="step-group-content">`;
+        } else {
+            const stepHtml = createStepHTML(step, index);
+            if (inGroup) {
+                currentGroupHtml += stepHtml;
+            } else {
+                finalHtml += stepHtml;
+            }
+        }
+    });
+
+    // Close trailing group
+    if (inGroup) {
+        finalHtml += currentGroupHtml + `</div></details>`;
+    }
+
+    stepsList.innerHTML = finalHtml;
 
     // Attach event listeners to step actions
     attachStepEventListeners();
@@ -343,10 +442,14 @@ function attachStepEventListeners() {
  * Handle edit step
  */
 function handleEditStep(event) {
+    isEditing = true; // Lock DOM rendering 
     const stepItem = event.target.closest('.step-item');
     const stepId = stepItem.dataset.stepId;
     const step = recordedSteps.find(s => s.id === stepId);
-    if (!step) return;
+    if (!step) {
+        isEditing = false;
+        return;
+    }
 
     // Create a form inside stepItem
     const formHtml = `
@@ -402,12 +505,16 @@ function handleEditStep(event) {
             stepId: stepId,
             updates: updates
         });
+        
+        isEditing = false;
+        lastStepsJson = ''; // Force re-render on next tick
         await loadSteps();
     });
 
     formDiv.querySelector('#cancelEditBtn').addEventListener('click', () => {
         formDiv.remove();
         editBtn.style.display = 'inline-block';
+        isEditing = false;
     });
 }
 
@@ -623,7 +730,69 @@ async function handleSaveGeminiApiKey() {
 // ─────────────────────────────────────────────────────────
 //  AI Flow Summary Export
 // ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────
+//  AI Structured Steps Export
+// ─────────────────────────────────────────────────────────
 
+async function handleExportStructured(aiServiceType) {
+    if (recordedSteps.length === 0) {
+        alert('No steps to export. Please record some steps first.');
+        return;
+    }
+
+    const btnId = aiServiceType === 'groq' ? 'exportStructuredGroq' : 'exportStructuredGemini';
+    const btn = document.getElementById(btnId);
+    const status = document.getElementById('flowSummaryStatus');
+    const originalText = btn.innerHTML;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Generating…';
+    status.textContent = '';
+    status.className = 'flow-status';
+
+    try {
+        let AiServiceObj = aiServiceType === 'groq' ? GroqService : (typeof GeminiService !== 'undefined' ? GeminiService : window.GeminiService);
+        const apiKey = await AiServiceObj.loadApiKey();
+
+        if (!apiKey) {
+            alert(`No ${aiServiceType.toUpperCase()} API key found. Please save one in Settings.`);
+            return;
+        }
+
+        status.textContent = `🤖 Calling ${aiServiceType} AI…`;
+        status.className = 'flow-status loading';
+        
+        // Optimize input context: Send simplified manual rows instead of raw JSON
+        const manualRows = Exporter.buildManualTestRows(recordedSteps);
+        // Remove headers and convert to string for AI
+        const stepsText = manualRows.slice(1).map(row => row.join(' | ')).join('\n');
+        
+        let structuredData = await AiServiceObj.structureSteps(stepsText, apiKey);
+        
+        status.textContent = '✅ Structured steps ready!';
+        status.className = 'flow-status success';
+
+        const xlsxData = Exporter.exportStructuredExcel(structuredData);
+        downloadBinaryFile(
+            xlsxData,
+            `structured-steps-${aiServiceType}.xlsx`,
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+
+        setTimeout(() => {
+            status.textContent = '';
+            status.className = 'flow-status';
+        }, 3000);
+
+    } catch (err) {
+        console.error('Structured steps export failed:', err);
+        status.textContent = '❌ Export failed: ' + err.message;
+        status.className = 'flow-status error';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
 async function handleExportFlowSummary() {
     if (recordedSteps.length === 0) {
         alert('No steps to export. Please record some steps first.');
