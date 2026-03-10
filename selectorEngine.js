@@ -201,49 +201,77 @@ const SelectorEngine = {
   },
 
   /**
-   * Generate Playwright locator
+   * Generate Playwright locator following best practices hierarchy
    */
   generatePlaywright(element) {
-    const tagName = element.tagName.toLowerCase();
     const text = this.getElementText(element);
-
-    // Try getByRole for semantic elements
+    
+    // 1. getByRole
     const role = this.getAriaRole(element);
-    if (role && text) {
-      return `page.getByRole('${role}', { name: '${text}' })`;
+    if (role && text && text.length < 50) {
+      return `page.getByRole('${role}', { name: '${this.escapeAriaName(text)}' })`;
     }
 
-    // Try getByLabel for form inputs
+    // 2. getByLabel
     const label = this.getAssociatedLabel(element);
     if (label) {
-      return `page.getByLabel('${label}')`;
+      return `page.getByLabel('${this.escapeAriaName(label)}')`;
     }
 
-    // Try getByPlaceholder
+    // 3. getByPlaceholder
     const placeholder = element.getAttribute('placeholder');
     if (placeholder) {
-      return `page.getByPlaceholder('${placeholder}')`;
+      return `page.getByPlaceholder('${this.escapeAriaName(placeholder)}')`;
     }
 
-    // Try getByText
-    if (text && text.length < 50) {
-      return `page.getByText('${text}')`;
+    // 4. getByText
+    if (text && text.length > 0 && text.length < 50 && !this.isDecorativeElement(element)) {
+      // Prioritize exact text match usually
+      return `page.getByText('${this.escapeAriaName(text)}', { exact: true })`;
     }
 
-    // Try data-test
-    const testId = element.getAttribute('data-test') || element.getAttribute('data-testid');
+    // 5. getByAltText
+    const alt = element.getAttribute('alt');
+    if (alt) {
+      return `page.getByAltText('${this.escapeAriaName(alt)}')`;
+    }
+
+    // 6. getByTitle
+    const title = element.getAttribute('title');
+    if (title) {
+      return `page.getByTitle('${this.escapeAriaName(title)}')`;
+    }
+
+    // 7. getByTestId (Playwright default testid usually data-testid)
+    const testId = element.getAttribute('data-testid') || element.getAttribute('data-test');
     if (testId) {
-      return `page.locator('[data-test="${testId}"]')`;
+      return `page.getByTestId('${this.escapeAriaName(testId)}')`;
     }
 
-    // Try ID
+    // 8. Fallbacks
     if (element.id) {
       return `page.locator('#${element.id}')`;
     }
 
-    // Fallback to CSS selector
     const css = this.generateCSS(element);
     return `page.locator('${css}')`;
+  },
+
+  /**
+   * Helper to escape names for playwright locators
+   */
+  escapeAriaName(str) {
+    if (!str) return '';
+    return str.replace(/'/g, "\\'").replace(/\n/g, " ").trim();
+  },
+
+  /**
+   * Helper to skip noisy text elements
+   */
+  isDecorativeElement(element) {
+    const tagName = element.tagName.toLowerCase();
+    return ['div', 'span', 'p'].includes(tagName) && 
+           (!element.onclick && !element.getAttribute('role'));
   },
 
   /**

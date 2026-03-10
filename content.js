@@ -451,6 +451,9 @@ function setupMessageListener() {
         } else if (message.action === 'startRecording') {
             startRecording();
             sendResponse({ success: true });
+        } else if (message.action === 'resumeRecording') {
+            resumeRecording();
+            sendResponse({ success: true });
         } else if (message.action === 'stopRecording') {
             stopRecording();
             sendResponse({ success: true });
@@ -512,6 +515,23 @@ function startRecording() {
     });
 
     console.log('🎬 Test Recorder: Recording started');
+}
+
+/**
+ * Resume recording without clearing steps
+ */
+function resumeRecording() {
+    isRecording = true;
+    
+    // We expect recordedSteps to either be populated by `loadRecordingState()` 
+    // or by Chrome storage state pulling.
+    attachEventListeners();
+    showFloatingPanel();
+    updatePanelRecordingState(true);
+
+    chrome.storage.local.set({ isRecording: true });
+
+    console.log('▶️ Test Recorder: Recording resumed');
 }
 
 /**

@@ -23,13 +23,44 @@
 }
 
 body {
-  width: 450px;
-  min-height: 600px;
-  max-height: 700px;
+  width: 100%;
+  max-width: 600px;
+  min-height: 100vh;
+  margin: 0 auto;
   font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: var(--text-primary);
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* When opened as a normal extension popup (fixed width) */
+@media (max-width: 600px) {
+  body {
+    width: 450px;
+    height: 600px;
+    max-height: 700px;
+    overflow: hidden;
+  }
+}
+
+/* When opened in a full tab */
+@media (min-width: 601px) {
+  body {
+    padding: 20px 0;
+    min-height: auto;
+  }
+  .container {
+    height: auto;
+    min-height: calc(100vh - 40px);
+    box-shadow: var(--shadow-lg);
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--border-color);
+  }
+  .steps-list {
+    max-height: 65vh; /* Prevent infinite growing in tab */
+  }
 }
 
 .container {
