@@ -1,0 +1,9 @@
+Step No,Action,Element,Locator,Test Data,Expected Result
+1,Navigate,Page,"//*[@id=""root""]",N/A,Page should load successfully
+2,Enter Text,input with placeholder "Username","//*[@placeholder=""Username""]",standard_user,"Field should contain ""standard_user"""
+3,Enter Text,input with placeholder "Password","//*[@placeholder=""Password""]",secret_sauce,"Field should contain ""secret_sauce"""
+4,Click,button with text "Login","//button[text()='Login']",N/A,Element should be clicked successfully
+5,Click,div with text "Sauce Labs Bolt T-Shirt","//div[text()='Sauce Labs Bolt T-Shirt']",N/A,Element should be clicked successfully
+6,Click,button with text "Add to cart","//button[text()='Add to cart']",N/A,Element should be clicked successfully
+7,Click,a.shopping_cart_link,"//*[@class=""shopping_cart_link""]",N/A,Element should be clicked successfully
+8,Click,button with text "Checkout","//button[text()='Checkout']",N/A,Element should be clicked successfully

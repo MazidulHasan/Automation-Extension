@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Recorder Pro</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <h1 class="title">
+          <span class="icon">🎬</span>
+          Test Recorder Pro
+        </h1>
+        <div class="header-right">
+          <div class="recording-indicator" id="recordingIndicator"></div>
+          <button id="settingsToggle" class="settings-btn" title="Groq API Settings">⚙️</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Settings Panel (Groq API Key) -->
+    <div class="settings-panel" id="settingsPanel" style="display:none;">
+      <div class="settings-title">🤖 Groq AI Settings</div>
+      <div class="settings-desc">
+        Your API key is stored locally in Chrome — never sent anywhere except directly to Groq.
+        Get a free key at <a href="https://console.groq.com" target="_blank" style="color:#a5b4fc;">console.groq.com</a>
+      </div>
+      <div class="settings-row">
+        <input type="password" id="groqApiKeyInput" class="settings-input" placeholder="gsk_xxxxxxxxxxxx..."
+          autocomplete="off" />
+        <button id="saveApiKey" class="btn btn-save-key">Save</button>
+      </div>
+      <div id="apiKeyStatus" class="api-key-status"></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button id="startRecording" class="btn btn-primary">
+        <span class="btn-icon">⏺</span>
+        Start Recording
+      </button>
+      <button id="stopRecording" class="btn btn-secondary" disabled>
+        <span class="btn-icon">⏹</span>
+        Stop Recording
+      </button>
+      <button id="clearSteps" class="btn btn-danger">
+        <span class="btn-icon">🗑</span>
+        Clear
+      </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-item">
+        <span class="stat-label">Steps Recorded:</span>
+        <span class="stat-value" id="stepCount">0</span>
+      </div>
+    </div>
+
+    <!-- Export Section -->
+    <div class="export-section">
+      <label class="export-label">Export As:</label>
+      <div class="export-buttons">
+        <button class="btn btn-export" id="exportManual" title="Export as Manual Test Case (CSV)">
+          📋 Manual CSV
+        </button>
+        <button class="btn btn-export" id="exportExcel" title="Export all steps as Excel (.xlsx)">
+          📊 Excel
+        </button>
+        <button class="btn btn-export" id="exportPlaywright" title="Export as Playwright Test">
+          🎭 Playwright
+        </button>
+        <button class="btn btn-export" id="exportSelenium" title="Export as Selenium Java Test">
+          ☕ Selenium
+        </button>
+        <button class="btn btn-export" id="exportJson" title="Export as JSON">
+          📄 JSON
+        </button>
+        <button class="btn btn-export" id="exportBdd" title="Export as BDD/Gherkin">
+          🥒 BDD
+        </button>
+      </div>
+
+      <!-- AI Flow Summary row -->
+      <div class="flow-summary-bar">
+        <button class="btn btn-flow-summary" id="exportFlowSummary"
+          title="Generate AI-powered test case summary via Groq and export as Excel">
+          🤖 Export Flow Summary (Excel)
+        </button>
+        <div id="flowSummaryStatus" class="flow-status"></div>
+      </div>
+    </div>
+
+    <!-- Steps List -->
+    <div class="steps-container">
+      <div class="steps-header">
+        <h2>Recorded Steps</h2>
+      </div>
+      <div class="steps-list" id="stepsList">
+        <div class="empty-state">
+          <div class="empty-icon">📝</div>
+          <p>No steps recorded yet</p>
+          <p class="empty-hint">Click "Start Recording" to begin</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SheetJS for Excel export -->
+  <script src="xlsx.full.min.js"></script>
+  <script src="exporter.js"></script>
+  <script src="groq.js"></script>
+  <script src="popup.js"></script>
+</body>
+
+</html>
