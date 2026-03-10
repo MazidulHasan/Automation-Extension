@@ -145,6 +145,8 @@ function createFloatingPanel() {
                 letter-spacing:0.4px; white-space:nowrap;
             ">REC</span>
             <div style="margin-left:auto;display:flex;align-items:center;gap:2px;">
+                <!-- Stop Recording -->
+                <button id="trp-stop-btn" class="trp-icon-btn" title="Stop Recording & Open Details" style="color:#fca5a5; font-size:12px; margin-right:4px;">⏹</button>
                 <!-- Minimize toggle -->
                 <button id="trp-minimize-btn" class="trp-icon-btn" title="Minimize / Expand">▼</button>
                 <!-- Close -->
@@ -171,6 +173,17 @@ function createFloatingPanel() {
     // ── Drag ──
     makeDraggable(floatingPanel, document.getElementById('trp-drag-handle'));
 
+    // ── Stop Recording ──
+    const stopBtn = document.getElementById('trp-stop-btn');
+    if (stopBtn) {
+        stopBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            chrome.runtime.sendMessage({ action: 'stopRecording' });
+            stopRecording();
+            chrome.runtime.sendMessage({ action: 'openDetails' });
+        });
+    }
+
     // ── Minimize ──
     document.getElementById('trp-minimize-btn').addEventListener('click', (e) => {
         e.stopPropagation();
@@ -180,6 +193,7 @@ function createFloatingPanel() {
         body.style.display = panelMinimized ? 'none' : 'flex';
         btn.textContent = panelMinimized ? '▲' : '▼';
         floatingPanel.style.borderRadius = panelMinimized ? '12px' : '12px';
+        chrome.storage.local.set({ panelMinimized });
     });
 
     // ── Close ──
@@ -241,6 +255,7 @@ function makeDraggable(element, handle) {
         if (isDragging) {
             isDragging = false;
             handle.style.cursor = 'grab';
+            chrome.storage.local.set({ panelX, panelY });
         }
     });
 }
@@ -453,13 +468,18 @@ function setupMessageListener() {
  * Load recording state from storage
  */
 function loadRecordingState() {
-    chrome.storage.local.get(['isRecording', 'recordedSteps'], (result) => {
+    chrome.storage.local.get(['isRecording', 'recordedSteps', 'panelX', 'panelY', 'panelMinimized'], (result) => {
+        if (result.panelX !== undefined) panelX = result.panelX;
+        if (result.panelY !== undefined) panelY = result.panelY;
+        if (result.panelMinimized !== undefined) panelMinimized = result.panelMinimized;
+
         if (result.isRecording) {
             isRecording = true;
             recordedSteps = result.recordedSteps || [];
             stepCounter = recordedSteps.length;
             attachEventListeners();
             showFloatingPanel();
+            updatePanelRecordingState(true);
         }
     });
 }

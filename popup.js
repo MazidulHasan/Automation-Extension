@@ -45,8 +45,15 @@ function setupEventListeners() {
     document.getElementById('exportJson').addEventListener('click', () => handleExport('json'));
     document.getElementById('exportBdd').addEventListener('click', () => handleExport('bdd'));
 
+    // Resume Recording
+    document.getElementById('resumeRecording').addEventListener('click', handleResumeRecording);
+
     // AI Flow Summary
     document.getElementById('exportFlowSummary').addEventListener('click', handleExportFlowSummary);
+    document.getElementById('exportFlowSummaryGemini').addEventListener('click', handleExportFlowSummaryGemini);
+    
+    // Gemini Settings
+    document.getElementById('saveGeminiApiKey').addEventListener('click', handleSaveGeminiApiKey);
 }
 
 /**
@@ -116,6 +123,32 @@ async function handleStartRecording() {
 }
 
 /**
+ * Handle resume recording
+ */
+async function handleResumeRecording() {
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab) throw new Error('No active tab found');
+
+        const response = await chrome.runtime.sendMessage({
+            action: 'resumeRecording',
+            tabId: tab.id
+        });
+
+        if (response && response.success) {
+            isRecording = true;
+            updateUI();
+            renderSteps();
+        } else {
+            throw new Error(response?.error || 'Unknown error');
+        }
+    } catch (error) {
+        console.error('Error resuming recording:', error);
+        alert('Failed to resume recording.\n\nPlease refresh the page and try again.');
+    }
+}
+
+/**
  * Handle stop recording
  * Routed through background for consistency.
  */
@@ -174,16 +207,19 @@ async function handleClearSteps() {
 function updateUI() {
     const startBtn = document.getElementById('startRecording');
     const stopBtn = document.getElementById('stopRecording');
+    const resumeBtn = document.getElementById('resumeRecording');
     const indicator = document.getElementById('recordingIndicator');
     const stepCount = document.getElementById('stepCount');
 
     if (isRecording) {
         startBtn.disabled = true;
         stopBtn.disabled = false;
+        resumeBtn.disabled = true;
         indicator.classList.add('active');
     } else {
         startBtn.disabled = false;
         stopBtn.disabled = true;
+        resumeBtn.disabled = recordedSteps.length === 0;
         indicator.classList.remove('active');
     }
 
@@ -309,41 +345,79 @@ function attachStepEventListeners() {
 function handleEditStep(event) {
     const stepItem = event.target.closest('.step-item');
     const stepId = stepItem.dataset.stepId;
-    const actionDiv = stepItem.querySelector('.step-action');
-    const currentText = actionDiv.textContent.trim();
+    const step = recordedSteps.find(s => s.id === stepId);
+    if (!step) return;
 
-    // Create input field
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = currentText;
-    input.style.width = '100%';
+    // Create a form inside stepItem
+    const formHtml = `
+        <div class="edit-step-form" style="display:flex; flex-direction:column; gap:8px; padding:10px; background:rgba(255,255,255,0.05); border-radius:6px; margin-top:8px;">
+            <input type="text" id="editActionName" value="${escapeHtml(step.actionName)}" style="padding:4px; width:100%; border-radius:4px;" />
+            
+            <div style="display:flex; gap:8px;">
+                <input type="text" id="editEventType" value="${escapeHtml(step.eventType)}" placeholder="Event Type" style="flex:1; padding:4px;" />
+                <input type="text" id="editValue" value="${escapeHtml(step.value || '')}" placeholder="Value" style="flex:1; padding:4px;" />
+            </div>
+            
+            ${step.element ? `
+            <input type="text" id="editXPath" value="${escapeHtml(step.element.xpath?.relative || '')}" placeholder="XPath" style="padding:4px; width:100%;" />
+            <input type="text" id="editCss" value="${escapeHtml(step.element.css || '')}" placeholder="CSS Selector" style="padding:4px; width:100%;" />
+            ` : ''}
+            
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" id="saveEditBtn" style="padding:4px 12px; background:#4f46e5; color:white; border:none; border-radius:4px; cursor:pointer;">Save</button>
+                <button type="button" id="cancelEditBtn" style="padding:4px 12px; background:transparent; color:#9ca3af; border:1px solid #4b5563; border-radius:4px; cursor:pointer;">Cancel</button>
+            </div>
+        </div>
+    `;
 
-    // Replace text with input
-    actionDiv.innerHTML = '';
-    actionDiv.appendChild(input);
-    input.focus();
+    // Disable edit button so we don't spam it
+    const editBtn = stepItem.querySelector('.step-btn-edit');
+    editBtn.style.display = 'none';
 
-    // Handle save
-    const saveEdit = async () => {
-        const newText = input.value.trim();
-        if (newText && newText !== currentText) {
-            await chrome.runtime.sendMessage({
-                action: 'updateStep',
-                stepId: stepId,
-                updates: { actionName: newText }
-            });
-            await loadSteps();
-        } else {
-            actionDiv.textContent = currentText;
+    const detailsDiv = stepItem.querySelector('.step-details');
+    detailsDiv.insertAdjacentHTML('afterend', formHtml);
+
+    const formDiv = stepItem.querySelector('.edit-step-form');
+
+    formDiv.querySelector('#saveEditBtn').addEventListener('click', async () => {
+        const updates = {
+            actionName: formDiv.querySelector('#editActionName').value.trim(),
+            eventType: formDiv.querySelector('#editEventType').value.trim(),
+            value: formDiv.querySelector('#editValue').value.trim() || null
+        };
+
+        if (step.element) {
+            updates.element = {
+                ...step.element,
+                css: formDiv.querySelector('#editCss').value.trim(),
+                xpath: {
+                    ...step.element.xpath,
+                    relative: formDiv.querySelector('#editXPath').value.trim()
+                }
+            };
         }
-    };
 
-    input.addEventListener('blur', saveEdit);
-    input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            saveEdit();
-        }
+        await chrome.runtime.sendMessage({
+            action: 'updateStep',
+            stepId: stepId,
+            updates: updates
+        });
+        await loadSteps();
     });
+
+    formDiv.querySelector('#cancelEditBtn').addEventListener('click', () => {
+        formDiv.remove();
+        editBtn.style.display = 'inline-block';
+    });
+}
+
+function escapeHtml(unsafe) {
+    return String(unsafe || '')
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 /**
@@ -495,13 +569,53 @@ async function handleSaveApiKey() {
 
 async function refreshApiKeyStatus() {
     const status = document.getElementById('apiKeyStatus');
-    if (!status) return;
-    const key = await GroqService.loadApiKey();
-    if (key) {
-        status.textContent = `✅ API key is set (${key.slice(0, 8)}…)`;
+    const geminiStatus = document.getElementById('geminiApiKeyStatus');
+
+    if (status) {
+        const key = await GroqService.loadApiKey();
+        if (key) {
+            status.textContent = `✅ API key is set (${key.slice(0, 8)}…)`;
+            status.className = 'api-key-status set';
+        } else {
+            status.textContent = '⚠️ No Groq API key saved.';
+            status.className = 'api-key-status unset';
+        }
+    }
+
+    if (geminiStatus) {
+        let GeminiServiceObj = typeof GeminiService !== 'undefined' ? GeminiService : window.GeminiService;
+        if (GeminiServiceObj) {
+            const key = await GeminiServiceObj.loadApiKey();
+            if (key) {
+                geminiStatus.textContent = `✅ API key is set (${key.slice(0, 8)}…)`;
+                geminiStatus.className = 'api-key-status set';
+            } else {
+                geminiStatus.textContent = '⚠️ No Gemini API key saved.';
+                geminiStatus.className = 'api-key-status unset';
+            }
+        }
+    }
+}
+
+async function handleSaveGeminiApiKey() {
+    const input = document.getElementById('geminiApiKeyInput');
+    const status = document.getElementById('geminiApiKeyStatus');
+    const key = input.value.trim();
+
+    if (!key) {
+        status.textContent = '⚠️ Please enter a key first.';
+        status.className = 'api-key-status unset';
+        return;
+    }
+
+    try {
+        let GeminiServiceObj = typeof GeminiService !== 'undefined' ? GeminiService : window.GeminiService;
+        await GeminiServiceObj.saveApiKey(key);
+        input.value = '';
+        status.textContent = '✅ API key saved securely.';
         status.className = 'api-key-status set';
-    } else {
-        status.textContent = '⚠️ No API key saved — click ⚙️ to add one.';
+    } catch (err) {
+        status.textContent = '❌ Failed to save key: ' + err.message;
         status.className = 'api-key-status unset';
     }
 }
