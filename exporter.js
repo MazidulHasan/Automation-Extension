@@ -167,6 +167,45 @@ const Exporter = {
     },
 
     /**
+<<<<<<< HEAD
+=======
+     * Export Structured AI Steps as Excel (.xlsx)
+     * Takes strictly formatted input from AI structureSteps()
+     */
+    exportStructuredExcel(structuredSteps) {
+        if (typeof XLSX === 'undefined') {
+            throw new Error('SheetJS (XLSX) library not loaded');
+        }
+
+        const headers = ['Step No', 'Action', 'Test Data', 'Expected Result'];
+        const rows = [headers];
+
+        structuredSteps.forEach(step => {
+            rows.push([
+                String(step.stepNo || ''),
+                String(step.action || ''),
+                String(step.testData || ''),
+                String(step.expectedResult || '')
+            ]);
+        });
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+
+        // Styling widths
+        ws['!cols'] = [
+            { wch: 10 },  // Step No
+            { wch: 60 },  // Action
+            { wch: 30 },  // Test Data
+            { wch: 50 },  // Expected Result
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, 'Structured QA Steps');
+        return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    },
+
+    /**
+>>>>>>> master
      * Auto-generate a flow summary without AI (fallback)
      */
     buildAutoSummary(steps) {
@@ -579,6 +618,7 @@ Scenario: Recorded User Journey\n`;
      * Helper: Get element description
      */
     getElementDescription(step) {
+<<<<<<< HEAD
         if (!step.element) {
             return step.eventType === 'navigation' ? 'Page' : 'N/A';
         }
@@ -595,6 +635,30 @@ Scenario: Recorded User Journey\n`;
             return tag || 'element';
         }
     },
+=======
+    if (!step.element) {
+      return step.eventType === 'navigation' ? 'Page' : 'N/A';
+    }
+
+    // Use the new friendlyName if it exists
+    if (step.element.friendlyName) {
+      return step.element.friendlyName;
+    }
+
+    // Fallback to the old logic
+    const { tag, text, id, name } = step.element.metadata || {};
+
+    if (text) {
+      return `${tag} with text "${text}"`;
+    } else if (id) {
+      return `${tag}#${id}`;
+    } else if (name) {
+      return `${tag}[name="${name}"]`;
+    } else {
+      return tag || 'element';
+    }
+  },
+>>>>>>> master
 
     /**
      * Helper: Get expected result

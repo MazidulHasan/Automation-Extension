@@ -1,63 +1,61 @@
 /**
- * GroqService - AI-powered test case summarization using Groq API
- * API key is stored securely in chrome.storage.local (never hardcoded)
- * Model: llama-3.3-70b-versatile — best for structured, deterministic output
+ * GeminiService - AI-powered test case summarization using Google Gemini API
+ * API key is stored securely in chrome.storage.local
+ * Model: gemini-2.5-flash — best for fast structured output
  */
 
-const GroqService = {
+const GeminiService = {
 
-    API_URL: 'https://api.groq.com/openai/v1/chat/completions',
-    MODEL: 'llama-3.3-70b-versatile',
+    // Using gemini-2.5-flash for speed and JSON output
+    API_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
 
     /**
-     * Save API key to chrome.storage.local (extension-sandboxed, not exposed to pages)
+     * Save API key to chrome.storage.local
      */
     async saveApiKey(key) {
-        await chrome.storage.local.set({ groqApiKey: key.trim() });
+        await chrome.storage.local.set({ geminiApiKey: key.trim() });
     },
 
     /**
      * Load API key from chrome.storage.local
      */
     async loadApiKey() {
-        const result = await chrome.storage.local.get('groqApiKey');
-        return result.groqApiKey || null;
+        const result = await chrome.storage.local.get('geminiApiKey');
+        return result.geminiApiKey || null;
     },
 
     /**
-     * Send recorded steps to Groq and receive a structured test case summary.
-     * Returns a parsed object: { testCaseName, module, preconditions, testSteps[], expectedResult, priority }
+     * Send recorded steps to Gemini and receive a structured test case summary.
      */
     async summarizeSteps(steps, apiKey) {
-        if (!apiKey) throw new Error('Groq API key is not set. Please add your key in Settings.');
+        if (!apiKey) throw new Error('Gemini API key is not set. Please add your key in Settings.');
 
         const prompt = this.buildPrompt(steps);
+        const url = `${this.API_URL}?key=${apiKey}`;
 
         let response;
         try {
-            response = await fetch(this.API_URL, {
+            response = await fetch(url, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: this.MODEL,
-                    messages: [
-                        { role: 'system', content: this.SYSTEM_PROMPT },
-                        { role: 'user', content: prompt }
-                    ],
-                    temperature: 0.15,   // low = deterministic / consistent
-                    max_tokens: 1024,
-                    response_format: { type: 'json_object' }
+                    contents: [{
+                        parts: [{ text: this.SYSTEM_PROMPT + '\n\n' + prompt }]
+                    }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        temperature: 0.15
+                    }
                 })
             });
         } catch (networkErr) {
-            throw new Error('Network error reaching Groq API. Check your internet connection.');
+            throw new Error('Network error reaching Gemini API. Check your internet connection.');
         }
 
         if (!response.ok) {
-            let errMsg = `Groq API error (HTTP ${response.status})`;
+            let errMsg = `Gemini API error (HTTP ${response.status})`;
             try {
                 const errBody = await response.json();
                 errMsg = errBody?.error?.message || errMsg;
@@ -66,13 +64,12 @@ const GroqService = {
         }
 
         const data = await response.json();
-        const raw = data?.choices?.[0]?.message?.content;
-        if (!raw) throw new Error('Empty response from Groq API.');
+        const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!raw) throw new Error('Empty response from Gemini API.');
 
         try {
             return JSON.parse(raw);
         } catch (_) {
-            // If model returned text instead of JSON, wrap it
             return {
                 testCaseName: 'AI Generated Test Case',
                 module: 'Web Application',
@@ -94,10 +91,7 @@ Rules:
 - Do NOT include any CSS selectors, XPath, or technical locators in the output.
 - Write test steps as a QA practitioner would: action-focused, numbered, plain English.
 - Combine sequential clicks/fills into logical steps where it makes sense.
-<<<<<<< HEAD
-=======
 - For dropdown menus, if a click is followed by a selection, the combined step should be phrased as: "Click the [Dropdown Name] and select [Selected Value]".
->>>>>>> master
 - Base the module name on the URL or page context.
 - Respond with ONLY a JSON object matching the schema below. No markdown, no explanation.
 
@@ -111,16 +105,10 @@ Schema:
   "priority": "High | Medium | Low"
 }`,
 
-    /**
-     * Build the user prompt from recorded steps
-     */
     buildPrompt(steps) {
-<<<<<<< HEAD
-=======
         // Now handles either an array of objects or an array of strings (simplified manual rows)
         if (typeof steps === 'string') return steps;
-        
->>>>>>> master
+
         const lines = steps.map((s, i) => {
             const type = s.assertionType ? `[ASSERT ${s.assertionType.toUpperCase()}]` : `[${s.eventType.toUpperCase()}]`;
             const val = s.value !== null && s.value !== undefined ? ` → value: "${s.value}"` : '';
@@ -129,8 +117,6 @@ Schema:
         });
 
         return `Here are the recorded browser steps:\n\n${lines.join('\n')}\n\nGenerate a structured QA test case summary as JSON.`;
-<<<<<<< HEAD
-=======
     },
 
     /**
@@ -139,7 +125,7 @@ Schema:
      */
     async structureSteps(stepsText, apiKey) {
         if (!stepsText) return [];
-        if (!apiKey) throw new Error('Groq API key is required.');
+        if (!apiKey) throw new Error('Gemini API key is required.');
 
         const prompt = `You are a strict QA automation engineer. Convert the following simplified browser recording steps into a perfectly formatted JSON array for manual QA execution. 
         
@@ -159,21 +145,16 @@ Schema:
         ${stepsText}`;
 
         try {
-            const response = await fetch(this.API_URL, {
+            const url = `${this.API_URL}?key=${apiKey}`;
+            const response = await fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    model: this.MODEL,
-                    messages: [
-                        { role: 'system', content: 'You are a strict QA engineer. You always respond with pure JSON arrays.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    temperature: 0.1,
-                    max_tokens: 2048,
-                    response_format: { type: 'json_object' }
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.1,
+                        responseMimeType: "application/json"
+                    }
                 })
             });
 
@@ -183,8 +164,8 @@ Schema:
             }
 
             const data = await response.json();
-            let text = data?.choices?.[0]?.message?.content;
-            if (!text) throw new Error('Empty response from Groq.');
+            let text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) throw new Error('Empty response from Gemini.');
             
             // Robust JSON extraction
             text = this.extractJson(text);
@@ -194,8 +175,8 @@ Schema:
             if (!Array.isArray(parsed) && Array.isArray(parsed.steps)) return parsed.steps;
             return Array.isArray(parsed) ? parsed : [];
         } catch (error) {
-            console.error('Groq API Error:', error);
-            throw new Error(error.message || 'Failed to generate structured steps with Groq.');
+            console.error('Gemini API Error:', error);
+            throw new Error(error.message || 'Failed to generate structured steps with Gemini.');
         }
     },
 
@@ -218,11 +199,9 @@ Schema:
             return text.substring(objStart, objEnd + 1);
         }
         return text;
->>>>>>> master
     }
 };
 
-// CommonJS compatibility (not needed in extension but harmless)
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = GroqService;
+    module.exports = GeminiService;
 }

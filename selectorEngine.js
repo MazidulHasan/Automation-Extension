@@ -201,6 +201,7 @@ const SelectorEngine = {
   },
 
   /**
+<<<<<<< HEAD
    * Generate Playwright locator
    */
   generatePlaywright(element) {
@@ -237,16 +238,89 @@ const SelectorEngine = {
     }
 
     // Try ID
+=======
+   * Generate Playwright locator following best practices hierarchy
+   */
+  generatePlaywright(element) {
+    const text = this.getElementText(element);
+    
+    // 1. getByRole
+    const role = this.getAriaRole(element);
+    if (role && text && text.length < 50) {
+      return `page.getByRole('${role}', { name: '${this.escapeAriaName(text)}' })`;
+    }
+
+    // 2. getByLabel
+    const label = this.getAssociatedLabel(element);
+    if (label) {
+      return `page.getByLabel('${this.escapeAriaName(label)}')`;
+    }
+
+    // 3. getByPlaceholder
+    const placeholder = element.getAttribute('placeholder');
+    if (placeholder) {
+      return `page.getByPlaceholder('${this.escapeAriaName(placeholder)}')`;
+    }
+
+    // 4. getByText
+    if (text && text.length > 0 && text.length < 50 && !this.isDecorativeElement(element)) {
+      // Prioritize exact text match usually
+      return `page.getByText('${this.escapeAriaName(text)}', { exact: true })`;
+    }
+
+    // 5. getByAltText
+    const alt = element.getAttribute('alt');
+    if (alt) {
+      return `page.getByAltText('${this.escapeAriaName(alt)}')`;
+    }
+
+    // 6. getByTitle
+    const title = element.getAttribute('title');
+    if (title) {
+      return `page.getByTitle('${this.escapeAriaName(title)}')`;
+    }
+
+    // 7. getByTestId (Playwright default testid usually data-testid)
+    const testId = element.getAttribute('data-testid') || element.getAttribute('data-test');
+    if (testId) {
+      return `page.getByTestId('${this.escapeAriaName(testId)}')`;
+    }
+
+    // 8. Fallbacks
+>>>>>>> master
     if (element.id) {
       return `page.locator('#${element.id}')`;
     }
 
+<<<<<<< HEAD
     // Fallback to CSS selector
+=======
+>>>>>>> master
     const css = this.generateCSS(element);
     return `page.locator('${css}')`;
   },
 
   /**
+<<<<<<< HEAD
+=======
+   * Helper to escape names for playwright locators
+   */
+  escapeAriaName(str) {
+    if (!str) return '';
+    return str.replace(/'/g, "\\'").replace(/\n/g, " ").trim();
+  },
+
+  /**
+   * Helper to skip noisy text elements
+   */
+  isDecorativeElement(element) {
+    const tagName = element.tagName.toLowerCase();
+    return ['div', 'span', 'p'].includes(tagName) && 
+           (!element.onclick && !element.getAttribute('role'));
+  },
+
+  /**
+>>>>>>> master
    * Generate Selenium locator
    */
   generateSelenium(element) {
@@ -392,16 +466,30 @@ const SelectorEngine = {
   getAssociatedLabel(element) {
     // Try label with for attribute
     if (element.id) {
+<<<<<<< HEAD
       const label = document.querySelector(`label[for="${element.id}"]`);
       if (label) {
         return label.textContent.trim();
+=======
+      try {
+        const label = document.querySelector(`label[for="${element.id.replace(/"/g, '\\"')}"]`);
+        if (label) {
+          return label.textContent.trim().replace(/\s+/g, ' ');
+        }
+      } catch (e) {
+        // Can happen with complex IDs, we'll try other methods
+>>>>>>> master
       }
     }
 
     // Try parent label
     const parentLabel = element.closest('label');
     if (parentLabel) {
+<<<<<<< HEAD
       return parentLabel.textContent.trim();
+=======
+      return parentLabel.textContent.trim().replace(/\s+/g, ' ');
+>>>>>>> master
     }
 
     // Try aria-label
@@ -410,6 +498,21 @@ const SelectorEngine = {
       return ariaLabel;
     }
 
+<<<<<<< HEAD
+=======
+    // Structural search: Look for a label in a sibling element's container, a common pattern in frameworks
+    const formGroup = element.closest('.form-group');
+    if (formGroup) {
+      const previousSibling = formGroup.previousElementSibling;
+      if (previousSibling && previousSibling.matches('[class*="col-"]')) {
+        const labelInSibling = previousSibling.querySelector('label.control-label, label');
+        if (labelInSibling) {
+          return labelInSibling.textContent.trim().replace(/\s+/g, ' ');
+        }
+      }
+    }
+
+>>>>>>> master
     return null;
   }
 };

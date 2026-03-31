@@ -59,6 +59,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         handleDeleteStep(message.stepId).then(sendResponse);
         return true;
     }
+<<<<<<< HEAD
+=======
+    else if (message.action === 'openDetails') {
+        chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') });
+        sendResponse({ success: true });
+        return true;
+    }
+    else if (message.action === 'resumeRecording') {
+        handleResumeRecording(tabId).then(sendResponse);
+        return true;
+    }
+>>>>>>> master
 });
 
 /**
@@ -90,6 +102,31 @@ async function handleStartRecording(tabId) {
 }
 
 /**
+<<<<<<< HEAD
+=======
+ * Resume recording
+ */
+async function handleResumeRecording(tabId) {
+    try {
+        isRecording = true;
+
+        await chrome.storage.local.set({
+            isRecording: true
+        });
+
+        await injectContentScript(tabId);
+        await chrome.tabs.sendMessage(tabId, { action: 'startRecording' });
+
+        console.log('✅ Recording resumed');
+        return { success: true };
+    } catch (error) {
+        console.error('❌ Error resuming recording:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+>>>>>>> master
  * Stop recording
  */
 async function handleStopRecording(tabId) {

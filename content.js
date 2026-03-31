@@ -145,6 +145,13 @@ function createFloatingPanel() {
                 letter-spacing:0.4px; white-space:nowrap;
             ">REC</span>
             <div style="margin-left:auto;display:flex;align-items:center;gap:2px;">
+<<<<<<< HEAD
+=======
+                <!-- Add Section -->
+                <button id="trp-add-section-btn" class="trp-icon-btn" title="Mark new test case boundary" style="color:#a5b4fc; font-size:12px; margin-right:4px;">📁</button>
+                <!-- Stop Recording -->
+                <button id="trp-stop-btn" class="trp-icon-btn" title="Stop Recording & Open Details" style="color:#fca5a5; font-size:12px; margin-right:4px;">⏹</button>
+>>>>>>> master
                 <!-- Minimize toggle -->
                 <button id="trp-minimize-btn" class="trp-icon-btn" title="Minimize / Expand">▼</button>
                 <!-- Close -->
@@ -171,6 +178,42 @@ function createFloatingPanel() {
     // ── Drag ──
     makeDraggable(floatingPanel, document.getElementById('trp-drag-handle'));
 
+<<<<<<< HEAD
+=======
+    // ── Stop Recording ──
+    const stopBtn = document.getElementById('trp-stop-btn');
+    if (stopBtn) {
+        stopBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            chrome.runtime.sendMessage({ action: 'stopRecording' });
+            stopRecording();
+            chrome.runtime.sendMessage({ action: 'openDetails' });
+        });
+    }
+
+    // ── Add Section ──
+    const sectionBtn = document.getElementById('trp-add-section-btn');
+    if (sectionBtn) {
+        sectionBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const name = prompt("Enter a name for the new step section:", "New Test Case");
+            if (name) {
+                chrome.runtime.sendMessage({
+                    action: 'stepRecorded',
+                    step: {
+                        id: 'grp_' + Date.now(),
+                        timestamp: Date.now(),
+                        eventType: 'group',
+                        actionName: name,
+                        element: null,
+                        value: null,
+                        assertionType: null
+                    }
+                });
+            }
+        });
+    }
+>>>>>>> master
     // ── Minimize ──
     document.getElementById('trp-minimize-btn').addEventListener('click', (e) => {
         e.stopPropagation();
@@ -180,6 +223,10 @@ function createFloatingPanel() {
         body.style.display = panelMinimized ? 'none' : 'flex';
         btn.textContent = panelMinimized ? '▲' : '▼';
         floatingPanel.style.borderRadius = panelMinimized ? '12px' : '12px';
+<<<<<<< HEAD
+=======
+        chrome.storage.local.set({ panelMinimized });
+>>>>>>> master
     });
 
     // ── Close ──
@@ -241,6 +288,10 @@ function makeDraggable(element, handle) {
         if (isDragging) {
             isDragging = false;
             handle.style.cursor = 'grab';
+<<<<<<< HEAD
+=======
+            chrome.storage.local.set({ panelX, panelY });
+>>>>>>> master
         }
     });
 }
@@ -436,6 +487,12 @@ function setupMessageListener() {
         } else if (message.action === 'startRecording') {
             startRecording();
             sendResponse({ success: true });
+<<<<<<< HEAD
+=======
+        } else if (message.action === 'resumeRecording') {
+            resumeRecording();
+            sendResponse({ success: true });
+>>>>>>> master
         } else if (message.action === 'stopRecording') {
             stopRecording();
             sendResponse({ success: true });
@@ -453,13 +510,25 @@ function setupMessageListener() {
  * Load recording state from storage
  */
 function loadRecordingState() {
+<<<<<<< HEAD
     chrome.storage.local.get(['isRecording', 'recordedSteps'], (result) => {
+=======
+    chrome.storage.local.get(['isRecording', 'recordedSteps', 'panelX', 'panelY', 'panelMinimized'], (result) => {
+        if (result.panelX !== undefined) panelX = result.panelX;
+        if (result.panelY !== undefined) panelY = result.panelY;
+        if (result.panelMinimized !== undefined) panelMinimized = result.panelMinimized;
+
+>>>>>>> master
         if (result.isRecording) {
             isRecording = true;
             recordedSteps = result.recordedSteps || [];
             stepCounter = recordedSteps.length;
             attachEventListeners();
             showFloatingPanel();
+<<<<<<< HEAD
+=======
+            updatePanelRecordingState(true);
+>>>>>>> master
         }
     });
 }
@@ -495,6 +564,26 @@ function startRecording() {
 }
 
 /**
+<<<<<<< HEAD
+=======
+ * Resume recording without clearing steps
+ */
+function resumeRecording() {
+    isRecording = true;
+    
+    // We expect recordedSteps to either be populated by `loadRecordingState()` 
+    // or by Chrome storage state pulling.
+    attachEventListeners();
+    showFloatingPanel();
+    updatePanelRecordingState(true);
+
+    chrome.storage.local.set({ isRecording: true });
+
+    console.log('▶️ Test Recorder: Recording resumed');
+}
+
+/**
+>>>>>>> master
  * Stop recording
  */
 function stopRecording() {
@@ -806,6 +895,31 @@ function getElementRoleLabel(element) {
 }
 
 /**
+<<<<<<< HEAD
+=======
+ * Gets a user-friendly name for an element, prioritizing labels over other attributes.
+ */
+function getElementFriendlyName(element) {
+    if (!element) return 'N/A';
+
+    const label = SelectorEngine.getAssociatedLabel(element);
+    // Clean label text from common artifacts like '*'
+    if (label) return label.replace(/[*:]/g, '').trim();
+
+    const text = SelectorEngine.getElementText(element);
+    if (text) return `${element.tagName.toLowerCase()} with text "${text}"`;
+
+    const placeholder = element.getAttribute('placeholder');
+    if (placeholder) return placeholder;
+    
+    const name = element.name;
+    if (name) return name;
+
+    return getElementRoleLabel(element);
+}
+
+/**
+>>>>>>> master
  * Highlight element (purple, recording mode)
  */
 function highlightElement(element) {
@@ -862,7 +976,12 @@ function recordStep({ eventType, assertionType, actionName, element, value, url 
             css: selectors.css,
             playwright: selectors.playwright,
             selenium: selectors.selenium,
+<<<<<<< HEAD
             metadata: selectors.metadata
+=======
+            metadata: selectors.metadata,
+            friendlyName: getElementFriendlyName(element) // Add the friendly name here
+>>>>>>> master
         };
 
         // Capture screenshot (simplified)
