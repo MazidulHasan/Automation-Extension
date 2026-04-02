@@ -6,11 +6,8 @@
 let isRecording = false;
 let recordedSteps = [];
 let updateInterval = null;
-<<<<<<< HEAD
-=======
 let lastStepsJson = '';
 let isEditing = false;
->>>>>>> master
 
 // Initialize
 document.addEventListener('DOMContentLoaded', initialize);
@@ -50,10 +47,6 @@ function setupEventListeners() {
     document.getElementById('exportJson').addEventListener('click', () => handleExport('json'));
     document.getElementById('exportBdd').addEventListener('click', () => handleExport('bdd'));
 
-<<<<<<< HEAD
-    // AI Flow Summary
-    document.getElementById('exportFlowSummary').addEventListener('click', handleExportFlowSummary);
-=======
     // Resume & Grouping
     document.getElementById('resumeRecording').addEventListener('click', handleResumeRecording);
     document.getElementById('addTestCase').addEventListener('click', handleAddTestCase);
@@ -72,7 +65,6 @@ function setupEventListeners() {
     // Modal Close hooks
     document.getElementById('cancelClearBtn').addEventListener('click', handleCancelClear);
     document.getElementById('confirmClearBtn').addEventListener('click', handleConfirmClear);
->>>>>>> master
 }
 
 /**
@@ -92,12 +84,6 @@ async function loadRecordingState() {
  * Load steps from storage
  */
 async function loadSteps() {
-<<<<<<< HEAD
-    try {
-        const response = await chrome.runtime.sendMessage({ action: 'getSteps' });
-        recordedSteps = response.steps || [];
-        renderSteps();
-=======
     if (isEditing) return; // Prevent DOM wiping while a user is typing
     
     try {
@@ -111,7 +97,6 @@ async function loadSteps() {
             lastStepsJson = newStepsJson;
             renderSteps();
         }
->>>>>>> master
     } catch (error) {
         console.error('Error loading steps:', error);
     }
@@ -158,9 +143,6 @@ async function handleStartRecording() {
 }
 
 /**
-<<<<<<< HEAD
- * Handle stop recording
-=======
  * Handle resume recording
  */
 async function handleResumeRecording() {
@@ -212,7 +194,6 @@ async function handleAddTestCase() {
 /**
  * Handle stop recording
 
->>>>>>> master
  * Routed through background for consistency.
  */
 async function handleStopRecording() {
@@ -235,15 +216,6 @@ async function handleStopRecording() {
 }
 
 /**
-<<<<<<< HEAD
- * Handle clear steps
- * Routed through background for consistency.
- */
-async function handleClearSteps() {
-    if (!confirm('Are you sure you want to clear all recorded steps?')) {
-        return;
-    }
-=======
  * Handle clear steps Modal presentation
  */
 function handleClearSteps() {
@@ -260,7 +232,6 @@ function handleCancelClear() {
  */
 async function handleConfirmClear() {
     document.getElementById('customConfirmModal').style.display = 'none';
->>>>>>> master
 
     try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -289,31 +260,22 @@ async function handleConfirmClear() {
 function updateUI() {
     const startBtn = document.getElementById('startRecording');
     const stopBtn = document.getElementById('stopRecording');
-<<<<<<< HEAD
-=======
     const resumeBtn = document.getElementById('resumeRecording');
     const addTestCaseBtn = document.getElementById('addTestCase');
->>>>>>> master
     const indicator = document.getElementById('recordingIndicator');
     const stepCount = document.getElementById('stepCount');
 
     if (isRecording) {
         startBtn.disabled = true;
         stopBtn.disabled = false;
-<<<<<<< HEAD
-=======
         resumeBtn.disabled = true;
         addTestCaseBtn.disabled = false;
->>>>>>> master
         indicator.classList.add('active');
     } else {
         startBtn.disabled = false;
         stopBtn.disabled = true;
-<<<<<<< HEAD
-=======
         resumeBtn.disabled = recordedSteps.length === 0;
         addTestCaseBtn.disabled = recordedSteps.length === 0;
->>>>>>> master
         indicator.classList.remove('active');
     }
 
@@ -337,9 +299,6 @@ function renderSteps() {
         return;
     }
 
-<<<<<<< HEAD
-    stepsList.innerHTML = recordedSteps.map((step, index) => createStepHTML(step, index)).join('');
-=======
     let finalHtml = '';
     let currentGroupHtml = '';
     let inGroup = false;
@@ -384,7 +343,6 @@ function renderSteps() {
     }
 
     stepsList.innerHTML = finalHtml;
->>>>>>> master
 
     // Attach event listeners to step actions
     attachStepEventListeners();
@@ -484,45 +442,6 @@ function attachStepEventListeners() {
  * Handle edit step
  */
 function handleEditStep(event) {
-<<<<<<< HEAD
-    const stepItem = event.target.closest('.step-item');
-    const stepId = stepItem.dataset.stepId;
-    const actionDiv = stepItem.querySelector('.step-action');
-    const currentText = actionDiv.textContent.trim();
-
-    // Create input field
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = currentText;
-    input.style.width = '100%';
-
-    // Replace text with input
-    actionDiv.innerHTML = '';
-    actionDiv.appendChild(input);
-    input.focus();
-
-    // Handle save
-    const saveEdit = async () => {
-        const newText = input.value.trim();
-        if (newText && newText !== currentText) {
-            await chrome.runtime.sendMessage({
-                action: 'updateStep',
-                stepId: stepId,
-                updates: { actionName: newText }
-            });
-            await loadSteps();
-        } else {
-            actionDiv.textContent = currentText;
-        }
-    };
-
-    input.addEventListener('blur', saveEdit);
-    input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            saveEdit();
-        }
-    });
-=======
     isEditing = true; // Lock DOM rendering 
     const stepItem = event.target.closest('.step-item');
     const stepId = stepItem.dataset.stepId;
@@ -606,7 +525,6 @@ function escapeHtml(unsafe) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
->>>>>>> master
 }
 
 /**
@@ -758,15 +676,6 @@ async function handleSaveApiKey() {
 
 async function refreshApiKeyStatus() {
     const status = document.getElementById('apiKeyStatus');
-<<<<<<< HEAD
-    if (!status) return;
-    const key = await GroqService.loadApiKey();
-    if (key) {
-        status.textContent = `✅ API key is set (${key.slice(0, 8)}…)`;
-        status.className = 'api-key-status set';
-    } else {
-        status.textContent = '⚠️ No API key saved — click ⚙️ to add one.';
-=======
     const geminiStatus = document.getElementById('geminiApiKeyStatus');
 
     if (status) {
@@ -814,7 +723,6 @@ async function handleSaveGeminiApiKey() {
         status.className = 'api-key-status set';
     } catch (err) {
         status.textContent = '❌ Failed to save key: ' + err.message;
->>>>>>> master
         status.className = 'api-key-status unset';
     }
 }
@@ -822,9 +730,6 @@ async function handleSaveGeminiApiKey() {
 // ─────────────────────────────────────────────────────────
 //  AI Flow Summary Export
 // ─────────────────────────────────────────────────────────
-<<<<<<< HEAD
-
-=======
 // ─────────────────────────────────────────────────────────
 //  AI Structured Steps Export
 // ─────────────────────────────────────────────────────────
@@ -888,7 +793,6 @@ async function handleExportStructured(aiServiceType) {
         btn.innerHTML = originalText;
     }
 }
->>>>>>> master
 async function handleExportFlowSummary() {
     if (recordedSteps.length === 0) {
         alert('No steps to export. Please record some steps first.');

@@ -23,15 +23,6 @@
 }
 
 body {
-<<<<<<< HEAD
-  width: 450px;
-  min-height: 600px;
-  max-height: 700px;
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: var(--text-primary);
-  overflow: hidden;
-=======
   width: 100%;
   max-width: 600px;
   min-height: 100vh;
@@ -70,7 +61,6 @@ body {
   .steps-list {
     max-height: 65vh; /* Prevent infinite growing in tab */
   }
->>>>>>> master
 }
 
 .container {
@@ -162,10 +152,7 @@ body {
 /* Controls */
 .controls {
   display: flex;
-<<<<<<< HEAD
-=======
   flex-wrap: wrap;
->>>>>>> master
   gap: 8px;
   margin-bottom: 16px;
 }
@@ -270,8 +257,6 @@ body {
   margin-bottom: 8px;
 }
 
-<<<<<<< HEAD
-=======
 .export-section > summary::-webkit-details-marker {
   display: none;
 }
@@ -286,7 +271,6 @@ body {
   transform: rotate(90deg);
 }
 
->>>>>>> master
 .export-buttons {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -687,8 +671,6 @@ body {
   background: rgba(34, 197, 94, 0.12);
   border-color: #22c55e;
   color: #86efac;
-<<<<<<< HEAD
-=======
 }
 
 /* Modal Overlay */
@@ -753,5 +735,4 @@ body {
 }
 .step-group-content {
   padding: 0 10px 10px 10px;
->>>>>>> master
 }

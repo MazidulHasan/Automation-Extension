@@ -167,8 +167,6 @@ const Exporter = {
     },
 
     /**
-<<<<<<< HEAD
-=======
      * Export Structured AI Steps as Excel (.xlsx)
      * Takes strictly formatted input from AI structureSteps()
      */
@@ -205,7 +203,6 @@ const Exporter = {
     },
 
     /**
->>>>>>> master
      * Auto-generate a flow summary without AI (fallback)
      */
     buildAutoSummary(steps) {
@@ -618,24 +615,6 @@ Scenario: Recorded User Journey\n`;
      * Helper: Get element description
      */
     getElementDescription(step) {
-<<<<<<< HEAD
-        if (!step.element) {
-            return step.eventType === 'navigation' ? 'Page' : 'N/A';
-        }
-
-        const { tag, text, id, name } = step.element.metadata || {};
-
-        if (text) {
-            return `${tag} with text "${text}"`;
-        } else if (id) {
-            return `${tag}#${id}`;
-        } else if (name) {
-            return `${tag}[name="${name}"]`;
-        } else {
-            return tag || 'element';
-        }
-    },
-=======
     if (!step.element) {
       return step.eventType === 'navigation' ? 'Page' : 'N/A';
     }
@@ -658,7 +637,6 @@ Scenario: Recorded User Journey\n`;
       return tag || 'element';
     }
   },
->>>>>>> master
 
     /**
      * Helper: Get expected result

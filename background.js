@@ -59,8 +59,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         handleDeleteStep(message.stepId).then(sendResponse);
         return true;
     }
-<<<<<<< HEAD
-=======
     else if (message.action === 'openDetails') {
         chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') });
         sendResponse({ success: true });
@@ -70,7 +68,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         handleResumeRecording(tabId).then(sendResponse);
         return true;
     }
->>>>>>> master
 });
 
 /**
@@ -102,8 +99,6 @@ async function handleStartRecording(tabId) {
 }
 
 /**
-<<<<<<< HEAD
-=======
  * Resume recording
  */
 async function handleResumeRecording(tabId) {
@@ -126,7 +121,6 @@ async function handleResumeRecording(tabId) {
 }
 
 /**
->>>>>>> master
  * Stop recording
  */
 async function handleStopRecording(tabId) {

@@ -201,44 +201,6 @@ const SelectorEngine = {
   },
 
   /**
-<<<<<<< HEAD
-   * Generate Playwright locator
-   */
-  generatePlaywright(element) {
-    const tagName = element.tagName.toLowerCase();
-    const text = this.getElementText(element);
-
-    // Try getByRole for semantic elements
-    const role = this.getAriaRole(element);
-    if (role && text) {
-      return `page.getByRole('${role}', { name: '${text}' })`;
-    }
-
-    // Try getByLabel for form inputs
-    const label = this.getAssociatedLabel(element);
-    if (label) {
-      return `page.getByLabel('${label}')`;
-    }
-
-    // Try getByPlaceholder
-    const placeholder = element.getAttribute('placeholder');
-    if (placeholder) {
-      return `page.getByPlaceholder('${placeholder}')`;
-    }
-
-    // Try getByText
-    if (text && text.length < 50) {
-      return `page.getByText('${text}')`;
-    }
-
-    // Try data-test
-    const testId = element.getAttribute('data-test') || element.getAttribute('data-testid');
-    if (testId) {
-      return `page.locator('[data-test="${testId}"]')`;
-    }
-
-    // Try ID
-=======
    * Generate Playwright locator following best practices hierarchy
    */
   generatePlaywright(element) {
@@ -287,22 +249,15 @@ const SelectorEngine = {
     }
 
     // 8. Fallbacks
->>>>>>> master
     if (element.id) {
       return `page.locator('#${element.id}')`;
     }
 
-<<<<<<< HEAD
-    // Fallback to CSS selector
-=======
->>>>>>> master
     const css = this.generateCSS(element);
     return `page.locator('${css}')`;
   },
 
   /**
-<<<<<<< HEAD
-=======
    * Helper to escape names for playwright locators
    */
   escapeAriaName(str) {
@@ -320,7 +275,6 @@ const SelectorEngine = {
   },
 
   /**
->>>>>>> master
    * Generate Selenium locator
    */
   generateSelenium(element) {
@@ -466,11 +420,6 @@ const SelectorEngine = {
   getAssociatedLabel(element) {
     // Try label with for attribute
     if (element.id) {
-<<<<<<< HEAD
-      const label = document.querySelector(`label[for="${element.id}"]`);
-      if (label) {
-        return label.textContent.trim();
-=======
       try {
         const label = document.querySelector(`label[for="${element.id.replace(/"/g, '\\"')}"]`);
         if (label) {
@@ -478,18 +427,13 @@ const SelectorEngine = {
         }
       } catch (e) {
         // Can happen with complex IDs, we'll try other methods
->>>>>>> master
       }
     }
 
     // Try parent label
     const parentLabel = element.closest('label');
     if (parentLabel) {
-<<<<<<< HEAD
-      return parentLabel.textContent.trim();
-=======
       return parentLabel.textContent.trim().replace(/\s+/g, ' ');
->>>>>>> master
     }
 
     // Try aria-label
@@ -498,8 +442,6 @@ const SelectorEngine = {
       return ariaLabel;
     }
 
-<<<<<<< HEAD
-=======
     // Structural search: Look for a label in a sibling element's container, a common pattern in frameworks
     const formGroup = element.closest('.form-group');
     if (formGroup) {
@@ -512,7 +454,6 @@ const SelectorEngine = {
       }
     }
 
->>>>>>> master
     return null;
   }
 };

@@ -94,10 +94,7 @@ Rules:
 - Do NOT include any CSS selectors, XPath, or technical locators in the output.
 - Write test steps as a QA practitioner would: action-focused, numbered, plain English.
 - Combine sequential clicks/fills into logical steps where it makes sense.
-<<<<<<< HEAD
-=======
 - For dropdown menus, if a click is followed by a selection, the combined step should be phrased as: "Click the [Dropdown Name] and select [Selected Value]".
->>>>>>> master
 - Base the module name on the URL or page context.
 - Respond with ONLY a JSON object matching the schema below. No markdown, no explanation.
 
@@ -115,12 +112,9 @@ Schema:
      * Build the user prompt from recorded steps
      */
     buildPrompt(steps) {
-<<<<<<< HEAD
-=======
         // Now handles either an array of objects or an array of strings (simplified manual rows)
         if (typeof steps === 'string') return steps;
         
->>>>>>> master
         const lines = steps.map((s, i) => {
             const type = s.assertionType ? `[ASSERT ${s.assertionType.toUpperCase()}]` : `[${s.eventType.toUpperCase()}]`;
             const val = s.value !== null && s.value !== undefined ? ` → value: "${s.value}"` : '';
@@ -129,8 +123,6 @@ Schema:
         });
 
         return `Here are the recorded browser steps:\n\n${lines.join('\n')}\n\nGenerate a structured QA test case summary as JSON.`;
-<<<<<<< HEAD
-=======
     },
 
     /**
@@ -218,7 +210,6 @@ Schema:
             return text.substring(objStart, objEnd + 1);
         }
         return text;
->>>>>>> master
     }
 };
 
