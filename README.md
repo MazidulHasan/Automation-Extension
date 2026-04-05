@@ -1,4 +1,4 @@
-# 🎬 Test Recorder Pro
+# 🎬 Mazidul QA Studio
 
 A professional Chrome Extension that captures user interactions and automatically generates test automation code - similar to SelectorsHub Recorder.
 

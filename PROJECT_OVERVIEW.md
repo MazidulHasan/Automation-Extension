@@ -1,9 +1,9 @@
-# Test Recorder Pro - Project Overview & AI Context
+# Mazidul QA Studio - Project Overview & AI Context
 
 This file serves as a reference for AI assistants and developers to quickly understand the project's architecture, data flow, and file responsibilities, enabling easier navigation and code modifications.
 
 ## 🎯 Project Goal
-**Test Recorder Pro** is a Manifest V3 Chrome Extension designed to capture user interactions in the browser and automatically generate test automation code. It supports multiple export formats including Playwright, Selenium (Java), JSON, BDD/Gherkin, and Excel/CSV formats for manual test cases. It also features integrations with Groq and Gemini APIs to summarize test flows and generate structured steps.
+**Mazidul QA Studio** is a Manifest V3 Chrome Extension designed to capture user interactions in the browser and automatically generate test automation code. It supports multiple export formats including Playwright, Selenium (Java), JSON, BDD/Gherkin, and Excel/CSV formats for manual test cases. It also features integrations with Groq and Gemini APIs to summarize test flows and generate structured steps.
 
 ---
 

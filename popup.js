@@ -13,17 +13,17 @@ let isEditing = false;
 document.addEventListener('DOMContentLoaded', initialize);
 
 async function initialize() {
-    // Load initial state
+    // 1. Setup event listeners IMMEDIATELY so buttons work even if state loading is slow
+    setupEventListeners();
+
+    // 2. Load initial state
     await loadRecordingState();
     await loadSteps();
 
-    // Setup event listeners
-    setupEventListeners();
-
-    // Start periodic updates
+    // 3. Start periodic updates
     startPeriodicUpdates();
 
-    // Show Groq key status
+    // 4. Show Groq/Gemini key status
     await refreshApiKeyStatus();
 }
 
@@ -31,13 +31,23 @@ async function initialize() {
  * Setup event listeners
  */
 function setupEventListeners() {
+    // Modal Close hooks (CRITICAL: Moved to top so they always attach)
+    const cancelClearBtn = document.getElementById('cancelClearBtn');
+    const confirmClearBtn = document.getElementById('confirmClearBtn');
+    if (cancelClearBtn) cancelClearBtn.addEventListener('click', handleCancelClear);
+    if (confirmClearBtn) confirmClearBtn.addEventListener('click', handleConfirmClear);
+
+    // Recording Controls
     document.getElementById('startRecording').addEventListener('click', handleStartRecording);
     document.getElementById('stopRecording').addEventListener('click', handleStopRecording);
     document.getElementById('clearSteps').addEventListener('click', handleClearSteps);
+    document.getElementById('resumeRecording').addEventListener('click', handleResumeRecording);
+    document.getElementById('addTestCase').addEventListener('click', handleAddTestCase);
 
-    // Settings toggle
+    // Settings
     document.getElementById('settingsToggle').addEventListener('click', toggleSettings);
     document.getElementById('saveApiKey').addEventListener('click', handleSaveApiKey);
+    document.getElementById('saveGeminiApiKey').addEventListener('click', handleSaveGeminiApiKey);
 
     // Export buttons
     document.getElementById('exportManual').addEventListener('click', () => handleExport('manual'));
@@ -47,24 +57,32 @@ function setupEventListeners() {
     document.getElementById('exportJson').addEventListener('click', () => handleExport('json'));
     document.getElementById('exportBdd').addEventListener('click', () => handleExport('bdd'));
 
-    // Resume & Grouping
-    document.getElementById('resumeRecording').addEventListener('click', handleResumeRecording);
-    document.getElementById('addTestCase').addEventListener('click', handleAddTestCase);
-
     // AI Flow Summary
-    document.getElementById('exportFlowSummary').addEventListener('click', handleExportFlowSummary);
-    document.getElementById('exportFlowSummaryGemini').addEventListener('click', handleExportFlowSummaryGemini);
+    const exportFlowGroq = document.getElementById('exportFlowSummary');
+    const exportFlowGemini = document.getElementById('exportFlowSummaryGemini');
+    if (exportFlowGroq) exportFlowGroq.addEventListener('click', () => handleExportFlowSummary('groq'));
+    if (exportFlowGemini) exportFlowGemini.addEventListener('click', () => handleExportFlowSummary('gemini'));
     
     // AI Structured Steps
-    document.getElementById('exportStructuredGroq').addEventListener('click', () => handleExportStructured('groq'));
-    document.getElementById('exportStructuredGemini').addEventListener('click', () => handleExportStructured('gemini'));
-    
-    // Gemini Settings
-    document.getElementById('saveGeminiApiKey').addEventListener('click', handleSaveGeminiApiKey);
-    
-    // Modal Close hooks
-    document.getElementById('cancelClearBtn').addEventListener('click', handleCancelClear);
-    document.getElementById('confirmClearBtn').addEventListener('click', handleConfirmClear);
+    const exportStructGroq = document.getElementById('exportStructuredGroq');
+    const exportStructGemini = document.getElementById('exportStructuredGemini');
+    if (exportStructGroq) exportStructGroq.addEventListener('click', () => handleExportStructured('groq'));
+    if (exportStructGemini) exportStructGemini.addEventListener('click', () => handleExportStructured('gemini'));
+
+    // AI Toggle
+    const toggleAiBtn = document.getElementById('toggleAiOptionsBtn');
+    if (toggleAiBtn) {
+        toggleAiBtn.addEventListener('click', () => {
+            const panel = document.getElementById('aiOptionsPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        });
+    }
+
+    // Clear API Keys
+    const clearGroqKey = document.getElementById('clearGroqKey');
+    const clearGeminiKey = document.getElementById('clearGeminiKey');
+    if (clearGroqKey) clearGroqKey.addEventListener('click', () => handleClearApiKey('groq'));
+    if (clearGeminiKey) clearGeminiKey.addEventListener('click', () => handleClearApiKey('gemini'));
 }
 
 /**
@@ -133,6 +151,7 @@ async function handleStartRecording() {
             recordedSteps = [];
             updateUI();
             renderSteps();
+            window.close(); // Closes the popup implicitly so the browser reveals the page!
         } else {
             throw new Error(response?.error || 'Unknown error');
         }
@@ -172,8 +191,8 @@ async function handleResumeRecording() {
  * Handle Add Test Case
  */
 async function handleAddTestCase() {
-    const testCaseName = prompt("Enter a name for the next test case boundary:", `Test Case ${document.querySelectorAll('summary').length + 1}`);
-    if (!testCaseName) return;
+    const currentGroupsCount = recordedSteps.filter(s => s.eventType === 'group').length;
+    const testCaseName = `Recorded Steps ${currentGroupsCount + 2}`;
 
     await chrome.runtime.sendMessage({
         action: 'stepRecorded',
@@ -189,6 +208,12 @@ async function handleAddTestCase() {
     });
     
     await loadSteps();
+
+    // Visual notification
+    const btn = document.getElementById('addTestCase');
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = `<span style="font-size:12px; font-weight:bold; color:#a5b4fc;">✅ Started!</span>`;
+    setTimeout(() => { btn.innerHTML = originalContent; }, 1500);
 }
 
 /**
@@ -207,6 +232,7 @@ async function handleStopRecording() {
         }
         isRecording = false;
         updateUI();
+        window.close(); // Close explicitly when they hit stop from popup too
     } catch (error) {
         console.error('Error stopping recording:', error);
         // Update UI regardless
@@ -303,6 +329,7 @@ function renderSteps() {
     let currentGroupHtml = '';
     let inGroup = false;
     let groupCounter = 0;
+    let localStepNo = 1;
 
     // Check if the first step is a group. If not, start with a default "Recorded Steps 1"
     const firstStepIsGroup = recordedSteps[0] && recordedSteps[0].eventType === 'group';
@@ -322,13 +349,16 @@ function renderSteps() {
             }
             inGroup = true;
             groupCounter++;
+            localStepNo = 1; // RESET
             
             // Generate a default name if it was an empty name, or use the provided name
             const groupName = step.actionName || `Recorded Steps ${groupCounter}`;
             
             finalHtml += `<details class="step-group" open><summary>📁 ${escapeHtml(groupName)} <button class="step-btn-delete" data-action="delete" data-step-id="${step.id}" style="margin-left:auto; background:none; border:none; padding:0; font-size:11px;">✕</button></summary><div class="step-group-content">`;
         } else {
-            const stepHtml = createStepHTML(step, index);
+            const stepHtml = createStepHTML(step, localStepNo - 1);
+            localStepNo++;
+            
             if (inGroup) {
                 currentGroupHtml += stepHtml;
             } else {
@@ -531,8 +561,10 @@ function escapeHtml(unsafe) {
  * Handle delete step
  */
 async function handleDeleteStep(event) {
-    const stepItem = event.target.closest('.step-item');
-    const stepId = stepItem.dataset.stepId;
+    const btn = event.target;
+    const stepId = btn.dataset.stepId || btn.closest('.step-item')?.dataset.stepId;
+
+    if (!stepId) return;
 
     if (confirm('Delete this step?')) {
         await chrome.runtime.sendMessage({
@@ -727,6 +759,25 @@ async function handleSaveGeminiApiKey() {
     }
 }
 
+async function handleClearApiKey(provider) {
+    if (provider === 'groq') {
+        await GroqService.saveApiKey('');
+        const status = document.getElementById('apiKeyStatus');
+        if (status) {
+            status.textContent = '🗑️ Groq API key cleared.';
+            status.className = 'api-key-status unset';
+        }
+    } else if (provider === 'gemini') {
+        let GeminiServiceObj = typeof GeminiService !== 'undefined' ? GeminiService : window.GeminiService;
+        await GeminiServiceObj.saveApiKey('');
+        const status = document.getElementById('geminiApiKeyStatus');
+        if (status) {
+            status.textContent = '🗑️ Gemini API key cleared.';
+            status.className = 'api-key-status unset';
+        }
+    }
+}
+
 // ─────────────────────────────────────────────────────────
 //  AI Flow Summary Export
 // ─────────────────────────────────────────────────────────
@@ -793,40 +844,46 @@ async function handleExportStructured(aiServiceType) {
         btn.innerHTML = originalText;
     }
 }
-async function handleExportFlowSummary() {
+/**
+ * Handle AI Flow Summary Export (Unified for Groq and Gemini)
+ */
+async function handleExportFlowSummary(aiType = 'groq') {
     if (recordedSteps.length === 0) {
         alert('No steps to export. Please record some steps first.');
         return;
     }
 
-    const btn = document.getElementById('exportFlowSummary');
+    const btnId = aiType === 'groq' ? 'exportFlowSummary' : 'exportFlowSummaryGemini';
+    const btn = document.getElementById(btnId);
     const status = document.getElementById('flowSummaryStatus');
+    const originalText = btn.innerHTML;
 
     // Show loading state
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Generating…';
+    btn.innerHTML = '<span class="spinner"></span> Working…';
     status.textContent = '';
     status.className = 'flow-status';
 
     let aiSummary = null;
 
     try {
-        const apiKey = await GroqService.loadApiKey();
+        const AiServiceObj = aiType === 'groq' ? GroqService : (typeof GeminiService !== 'undefined' ? GeminiService : window.GeminiService);
+        const apiKey = await AiServiceObj.loadApiKey();
 
         if (apiKey) {
-            status.textContent = '🤖 Calling Groq AI…';
+            status.textContent = `🤖 Calling ${aiType.toUpperCase()} AI…`;
             status.className = 'flow-status loading';
             try {
-                aiSummary = await GroqService.summarizeSteps(recordedSteps, apiKey);
+                aiSummary = await AiServiceObj.summarizeSteps(recordedSteps, apiKey);
                 status.textContent = '✅ AI summary ready!';
                 status.className = 'flow-status success';
-            } catch (groqErr) {
-                console.warn('Groq API call failed, using auto-summary:', groqErr);
+            } catch (aiErr) {
+                console.warn(`${aiType.toUpperCase()} API call failed, using auto-summary:`, aiErr);
                 status.textContent = `⚠️ AI failed — using auto-summary`;
                 status.className = 'flow-status error';
             }
         } else {
-            status.textContent = 'ℹ️ No API key — using auto-summary';
+            status.textContent = `ℹ️ No ${aiType.toUpperCase()} key — using auto-summary`;
             status.className = 'flow-status loading';
         }
 
@@ -834,7 +891,7 @@ async function handleExportFlowSummary() {
         const xlsxData = Exporter.exportFlowSummaryExcel(recordedSteps, aiSummary);
         downloadBinaryFile(
             xlsxData,
-            'flow-summary.xlsx',
+            `flow-summary-${aiType}.xlsx`,
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         );
 
@@ -849,7 +906,7 @@ async function handleExportFlowSummary() {
         status.className = 'flow-status error';
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '🤖 Export Flow Summary (Excel)';
+        btn.innerHTML = originalText;
     }
 }
 

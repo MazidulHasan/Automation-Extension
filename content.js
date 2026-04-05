@@ -114,8 +114,8 @@ function createFloatingPanel() {
         z-index: 2147483647;
         background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
         border: 1px solid rgba(99,102,241,0.4);
-        border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.15), inset 0 1px 0 rgba(255,255,255,0.05);
+        border-radius: 16px;
+        box-shadow: 0 15px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
         min-width: 230px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         backdrop-filter: blur(12px);
@@ -137,7 +137,7 @@ function createFloatingPanel() {
                 display:none; width:9px; height:9px; flex-shrink:0;
                 border-radius:50%; background:#ef4444;
             "></span>
-            <span style="color:#e0e7ff;font-size:11px;font-weight:700;letter-spacing:0.6px;white-space:nowrap;">TEST RECORDER PRO</span>
+            <img src="${chrome.runtime.getURL('icons/icon16.png')}" style="width: 14px; height: 14px; margin-left: 4px; border-radius: 2px;" alt="Icon" />
             <span id="trp-rec-label" style="
                 display:none; margin-left:2px;
                 background:rgba(239,68,68,0.2); color:#fca5a5;
@@ -146,9 +146,16 @@ function createFloatingPanel() {
             ">REC</span>
             <div style="margin-left:auto;display:flex;align-items:center;gap:2px;">
                 <!-- Add Section -->
-                <button id="trp-add-section-btn" class="trp-icon-btn" title="Mark new test case boundary" style="color:#a5b4fc; font-size:12px; margin-right:4px;">📁</button>
+                <button id="trp-add-section-btn" class="trp-icon-btn" title="Mark new test case boundary" style="color:#a5b4fc; font-size:14px; margin-right:4px;">
+                    <span style="position:relative;">📁<span style="position:absolute; bottom:-2px; right:-4px; font-size:10px;">➕</span></span>
+                </button>
+                <!-- Pause / Resume -->
+                <button id="trp-pause-btn" class="trp-icon-btn" title="Pause Recording" style="color:#fcd34d; font-size:12px; margin-right:4px;">⏸</button>
+                <button id="trp-resume-btn" class="trp-icon-btn" title="Resume Recording" style="color:#86efac; font-size:12px; margin-right:4px; display:none;">▶️</button>
                 <!-- Stop Recording -->
                 <button id="trp-stop-btn" class="trp-icon-btn" title="Stop Recording & Open Details" style="color:#fca5a5; font-size:12px; margin-right:4px;">⏹</button>
+                <!-- Open Main Ext -->
+                <button id="trp-open-ext-btn" class="trp-icon-btn" title="Open Main Menu" style="color:#cbd5e1; font-size:12px; margin-right:4px;">↗️</button>
                 <!-- Minimize toggle -->
                 <button id="trp-minimize-btn" class="trp-icon-btn" title="Minimize / Expand">▼</button>
                 <!-- Close -->
@@ -175,13 +182,38 @@ function createFloatingPanel() {
     // ── Drag ──
     makeDraggable(floatingPanel, document.getElementById('trp-drag-handle'));
 
+    // ── Open Main Ext ──
+    const openExtBtn = document.getElementById('trp-open-ext-btn');
+    if (openExtBtn) {
+        openExtBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            chrome.runtime.sendMessage({ action: 'openDetails' });
+        });
+    }
+
+    // ── Pause / Resume ──
+    const pauseBtn = document.getElementById('trp-pause-btn');
+    const resumeBtn = document.getElementById('trp-resume-btn');
+    if (pauseBtn) {
+        pauseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            chrome.runtime.sendMessage({ action: 'stopRecording' });
+        });
+    }
+    if (resumeBtn) {
+        resumeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            chrome.runtime.sendMessage({ action: 'resumeRecording' });
+        });
+    }
+
     // ── Stop Recording ──
     const stopBtn = document.getElementById('trp-stop-btn');
     if (stopBtn) {
         stopBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             chrome.runtime.sendMessage({ action: 'stopRecording' });
-            stopRecording();
+            stopRecording(true);
             chrome.runtime.sendMessage({ action: 'openDetails' });
         });
     }
@@ -191,20 +223,30 @@ function createFloatingPanel() {
     if (sectionBtn) {
         sectionBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const name = prompt("Enter a name for the new step section:", "New Test Case");
-            if (name) {
-                chrome.runtime.sendMessage({
-                    action: 'stepRecorded',
-                    step: {
-                        id: 'grp_' + Date.now(),
-                        timestamp: Date.now(),
-                        eventType: 'group',
-                        actionName: name,
-                        element: null,
-                        value: null,
-                        assertionType: null
-                    }
-                });
+            chrome.runtime.sendMessage({
+                action: 'stepRecorded',
+                step: {
+                    id: 'grp_' + Date.now(),
+                    timestamp: Date.now(),
+                    eventType: 'group',
+                    actionName: null,
+                    element: null,
+                    value: null,
+                    assertionType: null
+                }
+            });
+
+            // UI notification
+            const statusEl = document.getElementById('trp-status');
+            if (statusEl) {
+                statusEl.style.color = '#22c55e';
+                statusEl.style.background = 'rgba(34,197,94,0.15)';
+                statusEl.textContent = '✅ New test case started!';
+                setTimeout(() => {
+                    statusEl.style.color = '#64748b';
+                    statusEl.style.background = 'rgba(0,0,0,0.2)';
+                    statusEl.textContent = 'Click an assertion type, then click an element';
+                }, 2000);
             }
         });
     }
@@ -479,7 +521,7 @@ function setupMessageListener() {
             resumeRecording();
             sendResponse({ success: true });
         } else if (message.action === 'stopRecording') {
-            stopRecording();
+            stopRecording(false);
             sendResponse({ success: true });
         } else if (message.action === 'getSteps') {
             sendResponse({ steps: recordedSteps });
@@ -561,11 +603,14 @@ function resumeRecording() {
 /**
  * Stop recording
  */
-function stopRecording() {
+function stopRecording(hidePanel = false) {
     isRecording = false;
     detachEventListeners();
     updatePanelRecordingState(false);
-    hideFloatingPanel();
+    
+    if (hidePanel) {
+        hideFloatingPanel();
+    }
 
     chrome.storage.local.set({ isRecording: false });
 
@@ -578,9 +623,14 @@ function stopRecording() {
 function updatePanelRecordingState(recording) {
     const dot = document.getElementById('trp-recording-dot');
     const label = document.getElementById('trp-rec-label');
-    if (!dot) return;
-    dot.style.display = recording ? 'inline-block' : 'none';
+    const pauseBtn = document.getElementById('trp-pause-btn');
+    const resumeBtn = document.getElementById('trp-resume-btn');
+    
+    if (dot) dot.style.display = recording ? 'inline-block' : 'none';
     if (label) label.style.display = recording ? 'inline-block' : 'none';
+    
+    if (pauseBtn) pauseBtn.style.display = recording ? 'flex' : 'none';
+    if (resumeBtn) resumeBtn.style.display = recording ? 'none' : 'flex';
 }
 
 /**
@@ -958,18 +1008,13 @@ function recordStep({ eventType, assertionType, actionName, element, value, url 
         });
     }
 
-    recordedSteps.push(step);
-
-    // Save to storage
-    chrome.storage.local.set({ recordedSteps: recordedSteps });
-
-    // Notify background script
+    // Rely explicitly on tracking from background script to avoid context desyncs
     chrome.runtime.sendMessage({
         action: 'stepRecorded',
         step: step
     });
 
-    console.log('📝 Step recorded:', step);
+    console.log('📝 Step recorded via Content Script:', step);
 }
 
 /**

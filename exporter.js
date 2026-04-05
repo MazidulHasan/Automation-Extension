@@ -42,8 +42,14 @@ const Exporter = {
         const headers = ['Step No', 'Action', 'Element', 'Locator', 'Test Data', 'Expected Result'];
         const rows = [headers];
 
+        let realStepNo = 1;
         steps.forEach((step, index) => {
-            const stepNo = index + 1;
+            if (step.eventType === 'group') {
+                rows.push(['---', `Scenario name: ${step.actionName}`, '---', '---', '---', '---']);
+                realStepNo = 1; // reset step counter!
+                return;
+            }
+            const stepNo = realStepNo++;
             const action = this.getActionType(step.eventType, step.assertionType);
             const element = this.getElementDescription(step);
             const locator = step.element?.xpath?.relative || step.element?.css || 'N/A';
@@ -251,10 +257,18 @@ const Exporter = {
             testBody += `  await page.goto('${firstStep.url}');\n\n`;
         }
 
+        let localStepNo = 1;
         steps.forEach((step, index) => {
+            if (step.eventType === 'group') {
+                testBody += `\n  // =========================================\n`;
+                testBody += `  // Scenario name: ${step.actionName}\n`;
+                testBody += `  // =========================================\n\n`;
+                localStepNo = 1;
+                return;
+            }
             const code = this.generatePlaywrightStep(step);
             if (code) {
-                testBody += `  // Step ${index + 1}: ${step.actionName}\n`;
+                testBody += `  // Step ${localStepNo++}: ${step.actionName}\n`;
                 testBody += `  ${code}\n\n`;
             }
         });
@@ -397,10 +411,18 @@ public class RecordedTest {
             code += `        driver.get("${firstStep.url}");\n\n`;
         }
 
+        let localStepNo = 1;
         steps.forEach((step, index) => {
+            if (step.eventType === 'group') {
+                code += `\n        // =========================================\n`;
+                code += `        // Scenario name: ${step.actionName}\n`;
+                code += `        // =========================================\n\n`;
+                localStepNo = 1;
+                return;
+            }
             const stepCode = this.generateSeleniumStep(step);
             if (stepCode) {
-                code += `        // Step ${index + 1}: ${step.actionName}\n`;
+                code += `        // Step ${localStepNo++}: ${step.actionName}\n`;
                 code += `        ${stepCode}\n\n`;
             }
         });
@@ -526,11 +548,18 @@ public class RecordedTest {
 
 Scenario: Recorded User Journey\n`;
 
+        let localStepNo = 0;
         steps.forEach((step, index) => {
-            const gherkinStep = this.generateGherkinStep(step, index);
+            if (step.eventType === 'group') {
+                feature += `\nScenario name: ${step.actionName}\n`;
+                localStepNo = 0;
+                return;
+            }
+            const gherkinStep = this.generateGherkinStep(step, localStepNo);
             if (gherkinStep) {
                 feature += `  ${gherkinStep}\n`;
             }
+            localStepNo++;
         });
 
         return feature;

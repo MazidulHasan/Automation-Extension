@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Test Recorder Pro</title>
+  <title>Mazidul QA Studio</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 
@@ -26,8 +26,8 @@
     <header class="header">
       <div class="header-content">
         <h1 class="title">
-          <span class="icon">🎬</span>
-          Test Recorder Pro
+          <img src="icons/icon48.png" style="width: 24px; height: 24px; vertical-align: middle; border-radius: 4px;" alt="Logo" class="icon" />
+          Mazidul QA Studio
         </h1>
         <div class="header-right">
           <div class="recording-indicator" id="recordingIndicator"></div>
@@ -44,9 +44,9 @@
         Get a free key at <a href="https://console.groq.com" target="_blank" style="color:#a5b4fc;">console.groq.com</a>
       </div>
       <div class="settings-row">
-        <input type="password" id="groqApiKeyInput" class="settings-input" placeholder="Groq API Key (gsk_...)"
-          autocomplete="off" />
+        <input type="password" id="groqApiKeyInput" class="settings-input" placeholder="Groq API Key (gsk_...)" autocomplete="off" />
         <button id="saveApiKey" class="btn btn-save-key">Save</button>
+        <button id="clearGroqKey" class="btn" style="background:var(--bg-hover); color:#fca5a5; padding:6px 10px; border:1px solid #475569;" title="Clear Key">🗑</button>
       </div>
       <div id="apiKeyStatus" class="api-key-status"></div>
 
@@ -55,34 +55,29 @@
         Your Google Gemini API key. <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#a5b4fc;">Get API Key</a>
       </div>
       <div class="settings-row">
-        <input type="password" id="geminiApiKeyInput" class="settings-input" placeholder="Gemini API Key..."
-          autocomplete="off" />
+        <input type="password" id="geminiApiKeyInput" class="settings-input" placeholder="Gemini API Key..." autocomplete="off" />
         <button id="saveGeminiApiKey" class="btn btn-save-key">Save Info</button>
+        <button id="clearGeminiKey" class="btn" style="background:var(--bg-hover); color:#fca5a5; padding:6px 10px; border:1px solid #475569;" title="Clear Key">🗑</button>
       </div>
       <div id="geminiApiKeyStatus" class="api-key-status"></div>
     </div>
 
     <!-- Controls -->
-    <div class="controls">
-      <button id="startRecording" class="btn btn-primary">
-        <span class="btn-icon">⏺</span>
-        Start Recording
+    <div class="controls" style="display: flex; gap: 8px;">
+      <button id="startRecording" class="btn btn-primary" title="Start Recording" style="flex: 1; display: flex; justify-content: center; align-items: center; padding: 12px;">
+        <span class="btn-icon" style="margin: 0; font-size: 20px;">⏺</span>
       </button>
-      <button id="stopRecording" class="btn btn-secondary" disabled>
-        <span class="btn-icon">⏹</span>
-        Stop Recording
+      <button id="stopRecording" class="btn btn-secondary" title="Stop Recording" disabled style="flex: 1; display: flex; justify-content: center; align-items: center; padding: 12px;">
+        <span class="btn-icon" style="margin: 0; font-size: 20px;">⏹</span>
       </button>
-      <button id="resumeRecording" class="btn btn-secondary">
-        <span class="btn-icon">▶️</span>
-        Resume
+      <button id="resumeRecording" class="btn btn-secondary" title="Resume" style="flex: 1; display: flex; justify-content: center; align-items: center; padding: 12px;">
+        <span class="btn-icon" style="margin: 0; font-size: 20px;">▶️</span>
       </button>
-      <button id="addTestCase" class="btn btn-secondary" title="Mark boundary for a new test case" disabled>
-        <span class="btn-icon">📁</span>
-        Add Test Case
+      <button id="addTestCase" class="btn btn-secondary" title="Add Test Case" disabled style="flex: 1; display: flex; justify-content: center; align-items: center; padding: 12px;">
+        <span class="btn-icon" style="margin: 0; font-size: 20px; position:relative;">📁<span style="font-size: 10px; position:absolute; bottom:-1px; right:-6px; text-shadow:1px 1px 0 #1e293b;">➕</span></span>
       </button>
-      <button id="clearSteps" class="btn btn-danger">
-        <span class="btn-icon">🗑</span>
-        Clear
+      <button id="clearSteps" class="btn btn-danger" title="Clear" style="flex: 1; display: flex; justify-content: center; align-items: center; padding: 12px;">
+        <span class="btn-icon" style="margin: 0; font-size: 20px;">🗑</span>
       </button>
     </div>
 
@@ -121,28 +116,30 @@
         </button>
       </div>
 
-      <!-- AI Flow Summary row -->
-      <div class="flow-summary-bar">
-        <button class="btn btn-flow-summary" id="exportFlowSummary"
-          title="Generate AI-powered test case summary via Groq and export as Excel">
-          🤖 Export Flow (Groq)
-        </button>
-        <button class="btn btn-flow-summary" id="exportFlowSummaryGemini"
-          title="Generate AI-powered test case summary via Google Gemini and export as Excel" style="background: linear-gradient(135deg, #1d4ed8 0%, #4f46e5 100%); margin-left:8px;">
-          🌟 Export Flow (Gemini)
-        </button>
-      </div>
+      <button id="toggleAiOptionsBtn" class="btn btn-primary" style="width: 100%; margin-top: 8px; text-align: center; border-radius: 8px; background: linear-gradient(135deg, #1e293b 0%, #334155 100%);">
+        🤖 AI Export Options 
+      </button>
+      
+      <div id="aiOptionsPanel" style="display:none; margin-top: 8px;">
+        <!-- AI Flow Summary row -->
+        <div class="flow-summary-bar">
+          <button class="btn btn-flow-summary" id="exportFlowSummary" title="Generate AI-powered test case summary via Groq and export as Excel">
+            🤖 Export Flow (Groq)
+          </button>
+          <button class="btn btn-flow-summary" id="exportFlowSummaryGemini" title="Generate AI-powered test case summary via Google Gemini and export as Excel" style="background: linear-gradient(135deg, #1d4ed8 0%, #4f46e5 100%); margin-left:8px;">
+            🌟 Export Flow (Gemini)
+          </button>
+        </div>
 
-      <!-- AI Structured Steps row -->
-      <div class="flow-summary-bar" style="margin-top:8px;">
-        <button class="btn btn-flow-summary" id="exportStructuredGroq"
-          title="Generate strictly structured QA steps via Groq and export as Excel">
-          🤖 Structured Steps
-        </button>
-        <button class="btn btn-flow-summary" id="exportStructuredGemini"
-          title="Generate strictly structured QA steps via Gemini and export as Excel" style="background: linear-gradient(135deg, #1d4ed8 0%, #4f46e5 100%);">
-          🌟 Structured Steps
-        </button>
+        <!-- AI Structured Steps row -->
+        <div class="flow-summary-bar" style="margin-top:8px;">
+          <button class="btn btn-flow-summary" id="exportStructuredGroq" title="Generate strictly structured QA steps via Groq and export as Excel">
+            🤖 Structured Steps
+          </button>
+          <button class="btn btn-flow-summary" id="exportStructuredGemini" title="Generate strictly structured QA steps via Gemini and export as Excel" style="background: linear-gradient(135deg, #1d4ed8 0%, #4f46e5 100%);">
+            🌟 Structured Steps
+          </button>
+        </div>
       </div>
       <div id="flowSummaryStatus" class="flow-status" style="margin-top:8px; text-align:center;"></div>
     </details>

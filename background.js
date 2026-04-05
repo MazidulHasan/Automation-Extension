@@ -7,7 +7,7 @@ let recordedSteps = [];
 
 // Initialize
 chrome.runtime.onInstalled.addListener(() => {
-    console.log('🎬 Test Recorder Pro installed');
+    console.log('🎬 Mazidul QA Studio installed');
 
     // Initialize storage
     chrome.storage.local.set({
@@ -48,8 +48,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
     else if (message.action === 'stepRecorded') {
-        handleStepRecorded(message.step);
-        sendResponse({ success: true });
+        handleStepRecorded(message.step).then(() => {
+            sendResponse({ success: true });
+        });
+        return true;
     }
     else if (message.action === 'updateStep') {
         handleUpdateStep(message.stepId, message.updates).then(sendResponse);
@@ -188,11 +190,21 @@ async function handleClearSteps(tabId) {
 }
 
 /**
- * Handle step recorded from content script
+ * Handle step recorded from content script or popup
  */
-function handleStepRecorded(step) {
-    recordedSteps.push(step);
-    console.log('📝 Step recorded in background:', step);
+async function handleStepRecorded(step) {
+    const result = await chrome.storage.local.get('recordedSteps');
+    let steps = result.recordedSteps || [];
+
+    if (step.eventType === 'group' && !step.actionName) {
+        const currentGroupsCount = steps.filter(s => s.eventType === 'group').length;
+        step.actionName = `Recorded Steps ${currentGroupsCount + 2}`;
+    }
+    
+    steps.push(step);
+    recordedSteps = steps;
+    await chrome.storage.local.set({ recordedSteps: steps });
+    console.log('📝 Step recorded in background & saved to storage:', step);
 }
 
 /**
