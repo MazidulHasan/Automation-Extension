@@ -266,6 +266,7 @@ function createFloatingPanel() {
     document.getElementById('trp-close-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         panelHidden = true;
+        chrome.storage.local.set({ panelHidden: true });
         floatingPanel.style.display = 'none';
         deactivateAssertionMode();
     });
@@ -528,6 +529,11 @@ function setupMessageListener() {
         } else if (message.action === 'clearSteps') {
             clearSteps();
             sendResponse({ success: true });
+        } else if (message.action === 'showPanel') {
+            panelHidden = false;
+            chrome.storage.local.set({ panelHidden: false });
+            showFloatingPanel();
+            sendResponse({ success: true });
         }
         return true;
     });
@@ -537,18 +543,25 @@ function setupMessageListener() {
  * Load recording state from storage
  */
 function loadRecordingState() {
-    chrome.storage.local.get(['isRecording', 'recordedSteps', 'panelX', 'panelY', 'panelMinimized'], (result) => {
+    chrome.storage.local.get(['isRecording', 'recordedSteps', 'panelX', 'panelY', 'panelMinimized', 'panelHidden'], (result) => {
         if (result.panelX !== undefined) panelX = result.panelX;
         if (result.panelY !== undefined) panelY = result.panelY;
         if (result.panelMinimized !== undefined) panelMinimized = result.panelMinimized;
+        if (result.panelHidden !== undefined) panelHidden = result.panelHidden;
+
+        recordedSteps = result.recordedSteps || [];
+        stepCounter = recordedSteps.length;
 
         if (result.isRecording) {
             isRecording = true;
-            recordedSteps = result.recordedSteps || [];
-            stepCounter = recordedSteps.length;
             attachEventListeners();
-            showFloatingPanel();
+            if (!panelHidden) {
+                showFloatingPanel();
+            }
             updatePanelRecordingState(true);
+        } else if (recordedSteps.length > 0 && !panelHidden) {
+            showFloatingPanel();
+            updatePanelRecordingState(false);
         }
     });
 }
@@ -560,6 +573,8 @@ function startRecording() {
     isRecording = true;
     recordedSteps = [];
     stepCounter = 0;
+    panelHidden = false;
+    chrome.storage.local.set({ panelHidden: false });
 
     attachEventListeners();
     showFloatingPanel();
@@ -588,6 +603,8 @@ function startRecording() {
  */
 function resumeRecording() {
     isRecording = true;
+    panelHidden = false;
+    chrome.storage.local.set({ panelHidden: false });
     
     // We expect recordedSteps to either be populated by `loadRecordingState()` 
     // or by Chrome storage state pulling.

@@ -112,7 +112,7 @@ async function handleResumeRecording(tabId) {
         });
 
         await injectContentScript(tabId);
-        await chrome.tabs.sendMessage(tabId, { action: 'startRecording' });
+        await chrome.tabs.sendMessage(tabId, { action: 'resumeRecording' });
 
         console.log('✅ Recording resumed');
         return { success: true };

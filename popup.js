@@ -93,6 +93,13 @@ async function loadRecordingState() {
         const response = await chrome.runtime.sendMessage({ action: 'getRecordingState' });
         isRecording = response.isRecording;
         updateUI();
+        
+        if (isRecording) {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tab) {
+                chrome.tabs.sendMessage(tab.id, { action: 'showPanel' }).catch(() => {});
+            }
+        }
     } catch (error) {
         console.error('Error loading recording state:', error);
     }
