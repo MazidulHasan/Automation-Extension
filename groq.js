@@ -70,17 +70,27 @@ const GroqService = {
         if (!raw) throw new Error('Empty response from Groq API.');
 
         try {
-            return JSON.parse(raw);
+            const parsed = JSON.parse(this.extractJson(raw));
+            if (parsed.scenarios && Array.isArray(parsed.scenarios)) {
+                return parsed.scenarios.map(s => ({
+                    module: parsed.module,
+                    preconditions: parsed.preconditions,
+                    priority: parsed.priority,
+                    testCaseName: s.testCaseName,
+                    testSteps: s.testSteps,
+                    expectedResult: s.expectedResult
+                }));
+            }
+            return parsed;
         } catch (_) {
-            // If model returned text instead of JSON, wrap it
-            return {
+            return [{
                 testCaseName: 'AI Generated Test Case',
                 module: 'Web Application',
                 preconditions: 'Browser is open',
                 testSteps: [raw],
                 expectedResult: 'Application behaves as expected',
                 priority: 'Medium'
-            };
+            }];
         }
     },
 
@@ -88,41 +98,48 @@ const GroqService = {
     //  Prompt Engineering
     // ─────────────────────────────────────────────────────────
 
-    SYSTEM_PROMPT: `You are an expert QA engineer. Your job is to analyse a list of recorded browser actions and assertions and produce a clear, concise, human-readable test case.
+    SYSTEM_PROMPT: `You are an expert QA engineer. Your job is to analyse a list of recorded browser actions and assertions and produce clear, human-readable manual test cases.
+If there are multiple groups (e.g. '[GROUP] Scenario name...'), treat each as a scenario. Provide overarching context for the module and preconditions, then split the test steps into scenarios.
 
 Rules:
 - Do NOT include any CSS selectors, XPath, or technical locators in the output.
-- Write test steps as a QA practitioner would: action-focused, numbered, plain English.
+- Write test steps as a QA practitioner would: action-focused, numbered (starting at 1 for each scenario), plain English.
 - Combine sequential clicks/fills into logical steps where it makes sense.
 - For dropdown menus, if a click is followed by a selection, the combined step should be phrased as: "Click the [Dropdown Name] and select [Selected Value]".
 - Base the module name on the URL or page context.
-- Respond with ONLY a JSON object matching the schema below. No markdown, no explanation.
+- Respond with ONLY a JSON object matching the exact schema below.
 
 Schema:
 {
-  "testCaseName": "string (descriptive name, ≤80 chars)",
   "module": "string (feature or module name)",
   "preconditions": "string (browser/app state before test starts)",
-  "testSteps": ["1. ...", "2. ...", "..."],
-  "expectedResult": "string (overall expected outcome)",
-  "priority": "High | Medium | Low"
+  "priority": "High | Medium | Low",
+  "scenarios": [
+    {
+      "testCaseName": "string (descriptive name, ≤80 chars)",
+      "testSteps": ["1. ...", "2. ...", "..."],
+      "expectedResult": "string (overall expected outcome)"
+    }
+  ]
 }`,
 
     /**
      * Build the user prompt from recorded steps
      */
     buildPrompt(steps) {
-        // Now handles either an array of objects or an array of strings (simplified manual rows)
         if (typeof steps === 'string') return steps;
         
         const lines = steps.map((s, i) => {
-            const type = s.assertionType ? `[ASSERT ${s.assertionType.toUpperCase()}]` : `[${s.eventType.toUpperCase()}]`;
-            const val = s.value !== null && s.value !== undefined ? ` → value: "${s.value}"` : '';
+            let type = `[${s.eventType.toUpperCase()}]`;
+            if (s.eventType === 'group') type = `[GROUP]`;
+            if (s.eventType === 'assertion') type = `[ASSERT ${s.assertionType.toUpperCase()}]`;
+            
+            const val = s.value !== null && s.value !== undefined && typeof s.value !== 'object' ? ` → value: "${s.value}"` : '';
             const url = s.url ? ` (URL: ${s.url})` : '';
             return `${i + 1}. ${type} ${s.actionName}${val}${url}`;
         });
 
-        return `Here are the recorded browser steps:\n\n${lines.join('\n')}\n\nGenerate a structured QA test case summary as JSON.`;
+        return `Here are the recorded browser steps:\n\n${lines.join('\n')}\n\nGenerate structured QA test case summaries based on the provided schema.`;
     },
 
     /**

@@ -201,6 +201,20 @@ async function handleStepRecorded(step) {
         step.actionName = `Recorded Steps ${currentGroupsCount + 2}`;
     }
     
+    // Merge consecutive scrolls
+    if (step.eventType === 'scroll' && steps.length > 0) {
+        const lastStep = steps[steps.length - 1];
+        if (lastStep.eventType === 'scroll') {
+            lastStep.value = step.value;
+            lastStep.actionName = step.actionName;
+            lastStep.timestamp = step.timestamp;
+            await chrome.storage.local.set({ recordedSteps: steps });
+            recordedSteps = steps;
+            console.log('📝 Updated previous scroll step in background');
+            return;
+        }
+    }
+    
     steps.push(step);
     recordedSteps = steps;
     await chrome.storage.local.set({ recordedSteps: steps });

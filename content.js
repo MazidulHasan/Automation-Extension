@@ -779,7 +779,7 @@ function handleInput(event) {
             eventType: 'input',
             actionName: actionName,
             element: element,
-            value: inputType === 'password' ? '[REDACTED]' : value
+            value: value
         });
     }, 500);
 }
@@ -933,6 +933,11 @@ function getElementRoleLabel(element) {
     if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tag)) return 'heading';
     if (tag === 'li') return 'list item';
     if (tag === 'td' || tag === 'th') return 'table cell';
+    if (tag === 'b' || tag === 'strong') return 'bold text';
+    if (tag === 'i' || tag === 'em') return 'italic text';
+    if (tag === 'span') return 'text element';
+    if (tag === 'div') return 'container element';
+    if (tag === 'p') return 'paragraph';
     return tag; // fallback: raw tag name
 }
 

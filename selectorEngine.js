@@ -206,28 +206,27 @@ const SelectorEngine = {
   generatePlaywright(element) {
     const text = this.getElementText(element);
     
-    // 1. getByRole
+    // 1. getByRole (accessibility)
     const role = this.getAriaRole(element);
     if (role && text && text.length < 50) {
       return `page.getByRole('${role}', { name: '${this.escapeAriaName(text)}' })`;
     }
 
-    // 2. getByLabel
+    // 2. getByText (when element is non-interactive but has text)
+    if (text && text.length > 0 && text.length < 50 && !this.isDecorativeElement(element) && !['button', 'link'].includes(role)) {
+      return `page.getByText('${this.escapeAriaName(text)}', { exact: true })`;
+    }
+
+    // 3. getByLabel
     const label = this.getAssociatedLabel(element);
     if (label) {
       return `page.getByLabel('${this.escapeAriaName(label)}')`;
     }
 
-    // 3. getByPlaceholder
+    // 4. getByPlaceholder
     const placeholder = element.getAttribute('placeholder');
     if (placeholder) {
       return `page.getByPlaceholder('${this.escapeAriaName(placeholder)}')`;
-    }
-
-    // 4. getByText
-    if (text && text.length > 0 && text.length < 50 && !this.isDecorativeElement(element)) {
-      // Prioritize exact text match usually
-      return `page.getByText('${this.escapeAriaName(text)}', { exact: true })`;
     }
 
     // 5. getByAltText
@@ -242,10 +241,15 @@ const SelectorEngine = {
       return `page.getByTitle('${this.escapeAriaName(title)}')`;
     }
 
-    // 7. getByTestId (Playwright default testid usually data-testid)
+    // 7. getByTestId
     const testId = element.getAttribute('data-testid') || element.getAttribute('data-test');
     if (testId) {
       return `page.getByTestId('${this.escapeAriaName(testId)}')`;
+    }
+
+    // 8. Fallback to getByRole without accessible name
+    if (role) {
+      return `page.getByRole('${role}')`;
     }
 
     // 8. Fallbacks
