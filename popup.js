@@ -94,10 +94,21 @@ async function loadRecordingState() {
         isRecording = response.isRecording;
         updateUI();
         
-        if (isRecording) {
+        if (isRecording || response.isPaused) {
+            // Find the most likely target tab: the active one in the current window
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tab) {
+            
+            // Only send if it's a real web page (not our own popup tab or chrome://)
+            if (tab && tab.url && (tab.url.startsWith('http') || tab.url.startsWith('file'))) {
                 chrome.tabs.sendMessage(tab.id, { action: 'showPanel' }).catch(() => {});
+            } else {
+                // If the popup itself is the active tab (opened as detail view), 
+                // we should find the last focused window's active tab
+                const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+                const targetTab = tabs.find(t => t.url && t.url.startsWith('http'));
+                if (targetTab) {
+                    chrome.tabs.sendMessage(targetTab.id, { action: 'showPanel' }).catch(() => {});
+                }
             }
         }
     } catch (error) {

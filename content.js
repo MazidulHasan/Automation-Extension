@@ -197,7 +197,7 @@ function createFloatingPanel() {
     if (pauseBtn) {
         pauseBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            chrome.runtime.sendMessage({ action: 'stopRecording' });
+            chrome.runtime.sendMessage({ action: 'stopRecording', hidePanel: false });
         });
     }
     if (resumeBtn) {
@@ -522,7 +522,7 @@ function setupMessageListener() {
             resumeRecording();
             sendResponse({ success: true });
         } else if (message.action === 'stopRecording') {
-            stopRecording(false);
+            stopRecording(message.hidePanel ?? true);
             sendResponse({ success: true });
         } else if (message.action === 'getSteps') {
             sendResponse({ steps: recordedSteps });
@@ -543,25 +543,20 @@ function setupMessageListener() {
  * Load recording state from storage
  */
 function loadRecordingState() {
-    chrome.storage.local.get(['isRecording', 'recordedSteps', 'panelX', 'panelY', 'panelMinimized', 'panelHidden'], (result) => {
+    chrome.storage.local.get(['isRecording', 'isPaused', 'recordedSteps', 'panelX', 'panelY', 'panelMinimized', 'panelHidden'], (result) => {
         if (result.panelX !== undefined) panelX = result.panelX;
         if (result.panelY !== undefined) panelY = result.panelY;
-        if (result.panelMinimized !== undefined) panelMinimized = result.panelMinimized;
-        if (result.panelHidden !== undefined) panelHidden = result.panelHidden;
-
         recordedSteps = result.recordedSteps || [];
-        stepCounter = recordedSteps.length;
+        panelHidden = result.panelHidden || false;
+        panelMinimized = result.panelMinimized || false;
 
-        if (result.isRecording) {
-            isRecording = true;
+        if (result.isRecording || result.isPaused) {
+            isRecording = result.isRecording || false;
             attachEventListeners();
             if (!panelHidden) {
                 showFloatingPanel();
             }
-            updatePanelRecordingState(true);
-        } else if (recordedSteps.length > 0 && !panelHidden) {
-            showFloatingPanel();
-            updatePanelRecordingState(false);
+            updatePanelRecordingState(isRecording);
         }
     });
 }

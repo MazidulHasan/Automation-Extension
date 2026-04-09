@@ -278,23 +278,39 @@ const Exporter = {
         if (scenarios.length === 0) return [];
 
         return scenarios.map((scenario, index) => {
-            const firstUrl = scenario.steps.find(s => s.url)?.url || '';
-            const domain = this.extractModuleName(scenario.steps) || 'Web Application';
+            const firstNav = scenario.steps.find(s => s.url);
+            const firstUrl = firstNav ? firstNav.url : '';
+            const moduleName = this.extractModuleName(scenario.steps);
 
             const actionSteps = scenario.steps
                 .filter(s => s.eventType !== 'navigation' || scenario.steps.indexOf(s) === 0)
                 .map((s, i) => {
                     if (s.eventType === 'assertion') {
-                        const aType = { visibility: 'is visible', text: `has text "${s.value}"`, value: `has value "${s.value}"` };
-                        return `${i + 1}. Verify element ${aType[s.assertionType] || 'assertion'}`;
+                        const val = (s.value !== null && s.value !== undefined && s.value !== '') ? ` "${s.value}"` : '';
+                        const aType = { 
+                            visibility: 'is visible', 
+                            text: `has text${val}`, 
+                            value: `has value${val}` 
+                        };
+                        const desc = this.getElementDescription(s);
+                        return `${i + 1}. Verify ${desc} ${aType[s.assertionType] || 'assertion'}`;
                     }
                     return `${i + 1}. ${s.actionName}`;
                 });
 
+            // Make preconditions more descriptive based on URL type
+            let preconditions = `Browser is open.`;
+            if (firstUrl) {
+                const isForm = firstUrl.toLowerCase().includes('form') || firstUrl.toLowerCase().includes('new') || firstUrl.toLowerCase().includes('edit');
+                preconditions += ` Navigate to the ${isForm ? 'specific form' : 'page'} at: ${firstUrl}`;
+            } else {
+                preconditions += ` Navigate to the application URL.`;
+            }
+
             return {
-                testCaseName: scenario.actionName || `User flow on ${domain}`,
-                module: domain,
-                preconditions: `Browser is open. Navigate to: ${firstUrl}`,
+                testCaseName: scenario.actionName || `Verify ${moduleName} Functionality`,
+                module: moduleName,
+                preconditions: preconditions,
                 testSteps: actionSteps,
                 expectedResult: 'All steps complete successfully and the application responds correctly.',
                 priority: 'Medium',
@@ -308,60 +324,64 @@ const Exporter = {
      */
     exportPlaywright(steps) {
         const scenarios = this.groupStepsIntoScenarios(steps);
-        const moduleName = this.extractModuleName(steps) || 'App';
-        const pageClassName = `${moduleName}Page`;
+        const globalModuleName = this.extractModuleName(steps);
         
-        let output = `/**\n * file Name: ${pageClassName.toLowerCase()}.js\n */\n\n`;
-        output += `class ${pageClassName} {\n`;
-        output += `  constructor(page) {\n`;
-        output += `    this.page = page;\n`;
+        let output = `import { test, expect } from '@playwright/test';\n\n`;
 
-        // 1. Identify all unique elements and assign variable names
-        const elementMap = new Map();
-        let elCounter = 1;
-        
-        steps.forEach(s => {
-            if (s.element && !elementMap.has(s.element.playwright)) {
-                let varName = s.actionName.toLowerCase()
-                    .replace(/[^a-z0-9]/g, '_')
-                    .replace(/^click_|^type_|^select_/, '')
-                    .replace(/_+/g, '_')
-                    .replace(/^_|_$/g, '');
-                
-                if (!varName || varName === 'element') varName = `element_${elCounter++}`;
-                // Avoid duplicates
-                const originalVarName = varName;
-                let suffix = 1;
-                while ([...elementMap.values()].includes(varName)) {
-                    varName = `${originalVarName}_${suffix++}`;
-                }
-                
-                elementMap.set(s.element.playwright, varName);
-                output += `    this.${varName} = ${s.element.playwright};\n`;
-            }
-        });
-        
-        output += `  }\n\n`;
-
-        // 2. Generate methods for each scenario
         scenarios.forEach((scenario, index) => {
-            const methodName = `executeScenario${index + 1}`;
-            output += `  /**\n   * ${scenario.name}\n   */\n`;
-            output += `  async ${methodName}(data) {\n`;
+            const scenarioName = scenario.name.replace(/[^a-zA-Z0-9]/g, '');
+            const pageClassName = `${scenarioName}Page`;
             
-            scenario.steps.forEach(step => {
-                const code = this.generatePlaywrightStepPOM(step, elementMap);
-                if (code) {
-                    output += `    ${code}\n`;
+            output += `/**\n * Scenario: ${scenario.name}\n */\n`;
+            output += `test.describe('${scenario.name}', () => {\n\n`;
+            
+            output += `  class ${pageClassName} {\n`;
+            output += `    constructor(page) {\n`;
+            output += `      this.page = page;\n`;
+
+            // Identify unique elements for THIS scenario
+            const elementMap = new Map();
+            let elCounter = 1;
+            
+            scenario.steps.forEach(s => {
+                if (s.element && !elementMap.has(s.element.playwright)) {
+                    let varName = (s.element.friendlyName || s.actionName).toLowerCase()
+                        .replace(/[^a-z0-9]/g, '_')
+                        .replace(/^click_|^type_|^select_|^verify_/, '')
+                        .replace(/_+/g, '_')
+                        .replace(/^_|_$/g, '');
+                    
+                    if (!varName || varName === 'element') varName = `element_${elCounter++}`;
+                    const originalVarName = varName;
+                    let suffix = 1;
+                    while ([...elementMap.values()].includes(varName)) {
+                        varName = `${originalVarName}_${suffix++}`;
+                    }
+                    
+                    elementMap.set(s.element.playwright, varName);
+                    output += `      this.${varName} = ${s.element.playwright};\n`;
                 }
             });
-            output += `  }\n\n`;
-        });
-        output += `}\n\n`;
+            
+            output += `    }\n\n`;
 
-        // 3. Generate Data Driven config
-        output += `/**\n * Data Driven Testing Configuration\n */\n`;
-        const testData = scenarios.map((scenario, index) => {
+            output += `    async execute(data) {\n`;
+            scenario.steps.forEach(step => {
+                const stepCode = this.generatePlaywrightStepPOM(step, elementMap);
+                if (stepCode) {
+                    output += `      ${stepCode}\n`;
+                }
+            });
+            output += `    }\n`;
+            output += `  }\n\n`;
+
+            output += `  test('Execution', async ({ page }) => {\n`;
+            const firstNav = scenario.steps.find(s => s.url);
+            if (firstNav) {
+                output += `    await page.goto('${firstNav.url}');\n`;
+            }
+            output += `    const appPage = new ${pageClassName}(page);\n`;
+
             const dataEntry = {};
             scenario.steps.forEach(s => {
                 if (s.eventType === 'input' || s.eventType === 'change') {
@@ -369,33 +389,11 @@ const Exporter = {
                     if (varName) dataEntry[varName] = s.value;
                 }
             });
-            return { name: scenario.name, data: dataEntry };
+            output += `\n    const testData = ${JSON.stringify(dataEntry, null, 2).split('\n').join('\n    ')};\n\n`;
+            output += `    await appPage.execute(testData);\n`;
+            output += `  });\n`;
+            output += `});\n\n`;
         });
-        output += `const testData = ${JSON.stringify(testData, null, 2)};\n\n`;
-
-        // 4. Generate Spec File
-        const specName = `${moduleName.toLowerCase()}.spec.js`;
-        output += `/**\n * file Name: ${specName}\n */\n\n`;
-        output += `import { test, expect } from '@playwright/test';\n\n`;
-        
-        output += `test.describe('${moduleName} Tests', () => {\n`;
-        output += `  let appPage;\n\n`;
-        output += `  test.beforeEach(async ({ page }) => {\n`;
-        output += `    appPage = new ${pageClassName}(page);\n`;
-        const firstUrl = steps.find(s => s.url)?.url;
-        if (firstUrl) {
-            output += `    await page.goto('${firstUrl}');\n`;
-        }
-        output += `  });\n\n`;
-
-        // Create a test for each scenario using DDT
-        testData.forEach((td, index) => {
-            output += `  test('${td.name}', async () => {\n`;
-            output += `    await appPage.executeScenario${index + 1}(testData[${index}].data);\n`;
-            output += `  });\n\n`;
-        });
-
-        output += `});\n`;
 
         return output;
     },
@@ -1029,19 +1027,47 @@ Scenario: Recorded User Journey\n`;
      * Helper to extract a module name from steps
      */
     extractModuleName(steps) {
-        const firstUrl = steps.find(s => s.url)?.url;
-        if (!firstUrl) return null;
-        try {
-            const url = new URL(firstUrl);
-            const pathParts = url.pathname.split('/').filter(p => p);
-            if (pathParts.length > 0) {
-                const name = pathParts[0].replace(/[^a-zA-Z]/g, '');
-                return name.charAt(0).toUpperCase() + name.slice(1);
-            }
-            return url.hostname.split('.')[0].charAt(0).toUpperCase() + url.hostname.split('.')[0].slice(1);
-        } catch (_) {
-            return 'App';
+        if (!steps || steps.length === 0) return 'Web Application';
+
+        // 1. Look for navigation steps first
+        const navSteps = steps.filter(s => s.eventType === 'navigation' && s.url);
+        const urlString = navSteps.length > 0 ? navSteps[0].url : (steps[0].url || '');
+
+        if (urlString) {
+            try {
+                const url = new URL(urlString);
+                const pathParts = url.pathname.split('/').filter(p => p && !p.includes('.') && p.length > 1);
+                
+                if (pathParts.length >= 1) {
+                    // Collect up to index 1 (two parts) to get better module names
+                    const moduleParts = pathParts.slice(0, 2).map(part => {
+                        // Clean: remove numbers/ids (e.g. 123 in /form/123)
+                        const clean = part.replace(/[^a-zA-Z]/g, ' ').trim();
+                        // If it's a UUID or just digits, filter it out
+                        if (clean.length < 2) return null;
+                        return clean.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                    }).filter(Boolean);
+
+                    if (moduleParts.length > 0) {
+                        return moduleParts.join(' ');
+                    }
+                }
+
+                // Fallback to hostname if path is empty (homepage)
+                const hostname = url.hostname.replace('www.', '').split('.')[0];
+                if (hostname && !['localhost', '127'].includes(hostname)) {
+                    return hostname.charAt(0).toUpperCase() + hostname.slice(1);
+                }
+            } catch (_) {}
         }
+
+        // 2. Identify by action names (last resort)
+        for (const s of steps) {
+            if (s.actionName && (s.actionName.includes('Login') || s.actionName.includes('Sign in'))) return 'Login';
+            if (s.actionName && s.actionName.includes('Dashboard')) return 'Dashboard';
+        }
+
+        return 'Web Application';
     }
 };
 

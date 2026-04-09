@@ -98,10 +98,12 @@ const GeminiService = {
 
     SYSTEM_PROMPT: `You are an expert QA engineer. Your job is to analyse a list of recorded browser actions and assertions and produce clear, human-readable manual test cases.
 If there are multiple groups (e.g. '[GROUP] Scenario name...'), treat each as a scenario. Provide overarching context for the module and preconditions, then split the test steps into scenarios.
+Ensure the testCaseName is a professional, meaningful summary of the entire scenario, NOT just a generic placeholder.
 
 Rules:
 - Do NOT include any CSS selectors, XPath, or technical locators in the output.
 - Write test steps as a QA practitioner would: action-focused, numbered (starting at 1 for each scenario), plain English.
+- When describing a verification/assertion step, ALWAYS include the expected value (e.g., "Verify the 'Status' field has value 'Active'").
 - Combine sequential clicks/fills into logical steps where it makes sense.
 - For dropdown menus, if a click is followed by a selection, the combined step should be phrased as: "Click the [Dropdown Name] and select [Selected Value]".
 - Base the module name on the URL or page context.
@@ -114,7 +116,7 @@ Schema:
   "priority": "High | Medium | Low",
   "scenarios": [
     {
-      "testCaseName": "string (descriptive name, ≤80 chars)",
+      "testCaseName": "string (A highly descriptive, meaningful, and action-oriented name for this specific scenario, e.g. 'Verify Medication History Pagination' or 'Login with Invalid Password')",
       "testSteps": ["1. ...", "2. ...", "..."],
       "expectedResult": "string (overall expected outcome)"
     }

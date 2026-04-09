@@ -32,7 +32,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
     else if (message.action === 'stopRecording') {
-        handleStopRecording(tabId).then(sendResponse);
+        handleStopRecording(tabId, message.hidePanel ?? true).then(sendResponse);
         return true;
     }
     else if (message.action === 'getRecordingState') {
@@ -83,6 +83,7 @@ async function handleStartRecording(tabId) {
         // Save state
         await chrome.storage.local.set({
             isRecording: true,
+            isPaused: false,
             recordedSteps: []
         });
 
@@ -108,7 +109,8 @@ async function handleResumeRecording(tabId) {
         isRecording = true;
 
         await chrome.storage.local.set({
-            isRecording: true
+            isRecording: true,
+            isPaused: false
         });
 
         await injectContentScript(tabId);
@@ -125,15 +127,18 @@ async function handleResumeRecording(tabId) {
 /**
  * Stop recording
  */
-async function handleStopRecording(tabId) {
+async function handleStopRecording(tabId, hidePanel = true) {
     try {
         isRecording = false;
 
-        await chrome.storage.local.set({ isRecording: false });
+        await chrome.storage.local.set({ 
+            isRecording: false,
+            isPaused: !hidePanel 
+        });
 
         // Send message to content script
         try {
-            await chrome.tabs.sendMessage(tabId, { action: 'stopRecording' });
+            await chrome.tabs.sendMessage(tabId, { action: 'stopRecording', hidePanel });
         } catch (error) {
             console.log('Content script not available:', error);
         }
@@ -150,9 +155,10 @@ async function handleStopRecording(tabId) {
  * Get recording state
  */
 async function handleGetRecordingState() {
-    const result = await chrome.storage.local.get(['isRecording', 'recordedSteps']);
+    const result = await chrome.storage.local.get(['isRecording', 'isPaused', 'recordedSteps']);
     return {
         isRecording: result.isRecording || false,
+        isPaused: result.isPaused || false,
         stepCount: (result.recordedSteps || []).length
     };
 }
@@ -172,7 +178,10 @@ async function handleClearSteps(tabId) {
     try {
         recordedSteps = [];
 
-        await chrome.storage.local.set({ recordedSteps: [] });
+        await chrome.storage.local.set({ 
+            recordedSteps: [],
+            isPaused: false
+        });
 
         // Notify content script
         try {
