@@ -104,10 +104,11 @@ Ensure the testCaseName is a professional, meaningful summary of the entire scen
 
 Rules:
 - Do NOT include any CSS selectors, XPath, or technical locators in the output.
-- Write test steps as a QA practitioner would: action-focused, numbered (starting at 1 for each scenario), plain English.
+- Formatting: Format EVERY item in the testSteps array exactly as "Step Number | Action | Expected Result" (e.g. "1 | Click the 'Submit' button | Form is submitted").
+- Be Specific: NEVER say "Click the link" or "Click the button." Instead, use the element's exact label or text (e.g., "Click the 'Checkout' button" or "Select the 'Pricing' link in the footer").
+- Smart Grouping: Combine repetitive or micro-actions into single logical steps. (Bad: 1. Click Username 2. Type 'Admin' 3. Click Password 4. Type '123'. Good: 1. Log in using valid credentials (Username: 'Admin', Password: '123')).
+- Preserve Data: Ensure no critical data points (input values, specific URLs, or unique identifiers) are lost during the summarization process.
 - When describing a verification/assertion step, ALWAYS include the expected value (e.g., "Verify the 'Status' field has value 'Active'").
-- Combine sequential clicks/fills into logical steps where it makes sense.
-- For dropdown menus, if a click is followed by a selection, the combined step should be phrased as: "Click the [Dropdown Name] and select [Selected Value]".
 - Base the module name on the URL or page context.
 - Respond with ONLY a JSON object matching the exact schema below.
 
@@ -118,8 +119,8 @@ Schema:
   "priority": "High | Medium | Low",
   "scenarios": [
     {
-      "testCaseName": "string (A highly descriptive, meaningful, and action-oriented name for this specific scenario, e.g. 'Verify Medication History Pagination' or 'Login with Invalid Password')",
-      "testSteps": ["1. ...", "2. ...", "..."],
+      "testCaseName": "string (A highly descriptive, meaningful, and action-oriented name for this specific scenario)",
+      "testSteps": ["1 | Action description | Expected outcome", "2 | Another action | Another expected outcome"],
       "expectedResult": "string (overall expected outcome)"
     }
   ]
