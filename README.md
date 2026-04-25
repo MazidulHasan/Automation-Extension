@@ -16,24 +16,29 @@ Use it to move faster from exploratory testing to documented test cases and runn
 
 ## Screenshots
 
-Add your project images to a `screenshots/` folder and update the file names below.
+### Popup Recorder
 
-| Popup recorder | Recorded steps | Export options |
-| --- | --- | --- |
-| ![Popup recorder placeholder](screenshots/popup-recorder.png) | ![Recorded steps placeholder](screenshots/recorded-steps.png) | ![Export options placeholder](screenshots/export-options.png) |
+![Popup recorder](screenshots/popup-recorder.png)
 
-| AI export settings | Generated output | Collapsible floating popup |
-| --- | --- | --- |
-| ![AI export settings placeholder](screenshots/ai-export-settings.png) | ![Generated output placeholder](screenshots/generated-output.png) | ![Collapsible floating popup](screenshots/collapsible_floating_popup.png) |
+### Recorded Steps
 
-Suggested screenshot files:
+![Recorded steps](screenshots/recorded-steps.png)
 
-- `screenshots/popup-recorder.png`
-- `screenshots/recorded-steps.png`
-- `screenshots/export-options.png`
-- `screenshots/ai-export-settings.png`
-- `screenshots/generated-output.png`
-- `screenshots/collapsible_floating_popup.png`
+### Export Options
+
+![Export options](screenshots/export-options.png)
+
+### AI Export Settings
+
+![AI export settings](screenshots/ai-export-settings.png)
+
+### Generated Output
+
+![Generated output](screenshots/generated-output.png)
+
+### Collapsible Floating Popup
+
+![Collapsible floating popup](screenshots/collapsible_floating_popup.png)
 
 ## Feature Overview
 
