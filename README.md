@@ -1,273 +1,203 @@
-# 🎬 Mazidul QA Studio
+# Mazidul QA Studio
 
-A professional Chrome Extension that captures user interactions and automatically generates test automation code - similar to SelectorsHub Recorder.
+Mazidul QA Studio is a Manifest V3 Chrome extension for QA engineers and test automation developers. It records browser interactions, generates reliable selectors, and exports the captured flow into manual test cases, automation scripts, BDD scenarios, JSON, CSV, and Excel files.
 
-## ✨ Features
+Use it to move faster from exploratory testing to documented test cases and runnable automation starter code.
 
-### 🎯 Smart Recording
-- **Comprehensive Event Capture**: Clicks, inputs, form changes, keyboard events, scrolling, and navigation
-- **Intelligent Element Highlighting**: Visual feedback as you hover over elements during recording
-- **Real-time Step Tracking**: See each action recorded instantly in the popup UI
+## Highlights
 
-### 🔍 Advanced Selector Generation
-For every interaction, the extension generates:
-- **XPath Selectors**
-  - Absolute XPath
-  - Relative XPath (smart, stable)
-  - Text-based XPath
-  - Attribute-based XPath
-- **CSS Selectors** (ID, class, attribute-based)
-- **Playwright Locators** (`getByRole`, `getByText`, `getByLabel`, `locator`)
-- **Selenium Locators** (`By.id`, `By.xpath`, `By.cssSelector`)
+- Record clicks, inputs, changes, keyboard actions, scrolling, and navigation.
+- Generate XPath, CSS, Playwright, and Selenium-friendly locators.
+- View, edit, delete, clear, stop, and resume recorded steps from the popup.
+- Export recorded flows as Manual CSV, Excel, Playwright, Selenium Java, JSON, and BDD/Gherkin.
+- Generate AI-assisted flow summaries and structured QA steps with Groq or Gemini.
+- Store recording state and API keys locally using Chrome extension storage.
+- Run as an unpacked Chromium extension with Manifest V3.
 
-### 📤 Multiple Export Formats
-Export your recorded tests in 5 different formats:
+## Screenshots
 
-1. **Manual Test Case (CSV)** - For manual testing documentation
-2. **Playwright Test** - Ready-to-run JavaScript test file
-3. **Selenium Java Test** - TestNG/JUnit compatible Java test
-4. **JSON** - Raw structured data for custom processing
-5. **BDD/Gherkin** - Feature file for behavior-driven development
+Add your project images to a `screenshots/` folder and update the file names below.
 
-### ✏️ Step Management
-- **Edit Step Names**: Click edit to rename any step
-- **Delete Steps**: Remove unwanted steps
-- **Clear All**: Start fresh with one click
+| Popup recorder | Recorded steps | Export options |
+| --- | --- | --- |
+| ![Popup recorder placeholder](screenshots/popup-recorder.png) | ![Recorded steps placeholder](screenshots/recorded-steps.png) | ![Export options placeholder](screenshots/export-options.png) |
 
-## 🚀 Installation
+| AI export settings | Generated output | Collapsible floating popup |
+| --- | --- | --- |
+| ![AI export settings placeholder](screenshots/ai-export-settings.png) | ![Generated output placeholder](screenshots/generated-output.png) | ![Collapsible floating popup](screenshots/collapsible_floating_popup.png) |
 
-### Method 1: Load Unpacked Extension (Development)
+Suggested screenshot files:
 
-1. **Download/Clone this repository**
+- `screenshots/popup-recorder.png`
+- `screenshots/recorded-steps.png`
+- `screenshots/export-options.png`
+- `screenshots/ai-export-settings.png`
+- `screenshots/generated-output.png`
+- `screenshots/collapsible_floating_popup.png`
+
+## Feature Overview
+
+### Smart Recording
+
+Mazidul QA Studio listens to user interactions on the active tab and turns them into structured test steps. It can capture common QA workflow actions such as clicking buttons, typing into fields, selecting values, navigating pages, and scrolling.
+
+### Selector Generation
+
+For each captured element, the extension generates multiple locator options so you can choose the strongest one for your automation stack:
+
+- Absolute XPath
+- Relative XPath
+- Text-based XPath
+- Attribute-based XPath
+- CSS selectors
+- Playwright locators such as `getByRole`, `getByText`, `getByLabel`, and `locator`
+- Selenium locators such as `By.id`, `By.xpath`, and `By.cssSelector`
+
+### Export Formats
+
+Recorded flows can be exported in several formats:
+
+- Manual test case CSV
+- Excel workbook
+- Playwright JavaScript test
+- Selenium Java test
+- JSON
+- BDD/Gherkin feature file
+- AI-generated flow summary as Excel
+- AI-generated structured QA steps as Excel
+
+### AI Assistance
+
+The extension includes optional Groq and Gemini integrations. You can provide your own API keys in the popup settings, then generate clearer flow summaries or structured QA-style test steps from the recorded actions.
+
+API keys are stored locally in Chrome storage and are used only when you trigger the related AI export action.
+
+## Installation
+
+1. Clone or download this repository.
+
    ```bash
    git clone <repository-url>
-   cd ChromExtention
+   cd Automation-Extension
    ```
 
-2. **Open Chrome Extensions Page**
-   - Navigate to `chrome://extensions/`
-   - Or click Menu (⋮) → More Tools → Extensions
+2. Open Chrome or another Chromium-based browser.
 
-3. **Enable Developer Mode**
-   - Toggle the "Developer mode" switch in the top-right corner
+3. Go to:
 
-4. **Load the Extension**
-   - Click "Load unpacked"
-   - Select the `ChromExtention` folder
-   - The extension icon should appear in your toolbar
+   ```text
+   chrome://extensions/
+   ```
 
-## 📖 Usage Guide
+4. Enable **Developer mode**.
 
-### Starting a Recording
+5. Click **Load unpacked**.
 
-1. **Click the Extension Icon** in your Chrome toolbar
-2. **Click "Start Recording"** button
-   - The recording indicator will turn red and blink
-3. **Navigate to your test website** (e.g., https://www.saucedemo.com)
-4. **Perform your test actions**:
-   - Click buttons, links, etc.
-   - Fill in input fields
-   - Select dropdown options
-   - Check/uncheck checkboxes
-   - Navigate between pages
+6. Select the project folder.
 
-### Viewing Recorded Steps
+7. Pin **Mazidul QA Studio** from the browser extensions menu for quick access.
 
-- Each step appears in the popup with:
-  - Step number and timestamp
-  - Action description
-  - Event type
-  - XPath and CSS selectors
-  - Test data (if applicable)
+## Usage
 
-### Editing Steps
+1. Open the website you want to test.
+2. Click the Mazidul QA Studio extension icon.
+3. Click **Start Recording**.
+4. Perform the flow you want to capture.
+5. Stop or resume recording as needed.
+6. Review the recorded steps in the popup.
+7. Edit or delete steps if needed.
+8. Choose an export format and download the generated file.
 
-1. Click the **✏️ Edit** button on any step
-2. Modify the action name
-3. Press Enter or click outside to save
+## Example Exports
 
-### Exporting Tests
+The repository includes sample outputs in the `examples/` folder:
 
-1. **Stop Recording** (if still recording)
-2. **Choose Export Format**:
-   - **📋 Manual Test** - Downloads CSV file
-   - **🎭 Playwright** - Downloads `.spec.js` file
-   - **☕ Selenium** - Downloads `.java` file
-   - **📄 JSON** - Downloads `.json` file
-   - **🥒 BDD** - Downloads `.feature` file
+- `examples/example-playwright.spec.js`
+- `examples/RecordedTest.java`
+- `examples/test.feature`
+- `examples/manual-test-case.csv`
 
-### Example: Playwright Export
+## Project Structure
 
-```javascript
-import { test, expect } from '@playwright/test';
-
-test('Recorded Test Case', async ({ page }) => {
-  await page.goto('https://www.saucedemo.com/');
-
-  // Step 1: Enter "standard_user" in "Username"
-  await page.getByPlaceholder('Username').fill('standard_user');
-
-  // Step 2: Enter "secret_sauce" in "Password"
-  await page.getByPlaceholder('Password').fill('secret_sauce');
-
-  // Step 3: Click "Login"
-  await page.getByRole('button', { name: 'Login' }).click();
-
-  // Verify final URL
-  await expect(page).toHaveURL('https://www.saucedemo.com/inventory.html');
-});
+```text
+Automation-Extension/
++-- manifest.json              # Chrome extension Manifest V3 configuration
++-- popup.html                 # Extension popup markup
++-- popup.css                  # Popup styling
++-- popup.js                   # Popup controls, rendering, and export triggers
++-- background.js              # Service worker and message routing
++-- content.js                 # Page-level event capture and highlighting
++-- selectorEngine.js          # XPath, CSS, Playwright, and Selenium locator logic
++-- exporter.js                # Export generation for supported formats
++-- groq.js                    # Groq AI integration
++-- gemini.js                  # Gemini AI integration
++-- xlsx.full.min.js           # SheetJS library for Excel export
++-- icons/                     # Extension icons
++-- examples/                  # Sample generated files
++-- screenshots/               # Add README screenshots here
 ```
 
-### Example: Manual Test Case Export
+## Architecture
 
-```csv
-Step No,Action,Element,Locator,Test Data,Expected Result
-1,Navigate,Page,"//*[@id=""root""]",N/A,Page should load successfully
-2,Enter Text,input with placeholder "Username","//*[@placeholder=""Username""]",standard_user,"Field should contain ""standard_user"""
-3,Enter Text,input with placeholder "Password","//*[@placeholder=""Password""]",secret_sauce,"Field should contain ""secret_sauce"""
-4,Click,button with text "Login","//button[text()='Login']",N/A,Element should be clicked successfully
+```text
+Popup UI
+  |
+  | start, stop, resume, clear, export
+  v
+Background service worker
+  |
+  | injects scripts and stores state
+  v
+Content script
+  |
+  | captures browser events
+  v
+Selector engine
+  |
+  | creates locators
+  v
+Exporter / AI modules
+  |
+  | downloads generated output
+  v
+CSV, Excel, Playwright, Selenium, JSON, BDD
 ```
 
-## 🏗️ Architecture
+## Permissions
 
-```
-┌─────────────────┐
-│   Popup UI      │  ← User Interface (popup.html, popup.js, popup.css)
-└────────┬────────┘
-         │
-         ↓
-┌─────────────────┐
-│  Background     │  ← Service Worker (background.js)
-│  Service Worker │     - State management
-└────────┬────────┘     - Message routing
-         │
-         ↓
-┌─────────────────┐
-│  Content Script │  ← Injected into web pages (content.js)
-└────────┬────────┘     - Event listeners
-         │              - Element highlighting
-         ↓
-┌─────────────────┐
-│ Selector Engine │  ← Smart selector generation (selectorEngine.js)
-└─────────────────┘     - XPath, CSS, Playwright, Selenium
+The extension uses these Chrome permissions:
 
-┌─────────────────┐
-│    Exporter     │  ← Code generation (exporter.js)
-└─────────────────┘     - 5 export formats
-```
+- `activeTab` for interacting with the current browser tab.
+- `storage` for saving recorded steps, recording state, and optional API keys.
+- `scripting` for injecting recorder scripts into web pages.
+- `tabs` for tab-level communication and state handling.
+- `<all_urls>` host permission so the recorder can work across websites.
 
-### File Structure
+## Browser Support
 
-```
-ChromExtention/
-├── manifest.json           # Extension configuration (Manifest V3)
-├── popup.html             # Popup UI structure
-├── popup.css              # Modern dark-themed styling
-├── popup.js               # Popup logic and controls
-├── background.js          # Background service worker
-├── content.js             # Content script (event capture)
-├── selectorEngine.js      # Selector generation engine
-├── exporter.js            # Export functionality
-├── icons/                 # Extension icons
-│   ├── icon16.png
-│   ├── icon48.png
-│   └── icon128.png
-└── README.md              # This file
-```
+Mazidul QA Studio is designed for Chromium-based browsers:
 
-## 🎨 UI Features
+- Google Chrome
+- Microsoft Edge
+- Brave
+- Other Manifest V3 compatible Chromium browsers
 
-- **Modern Dark Theme** with gradient accents
-- **Blinking Recording Indicator** for visual feedback
-- **Smooth Animations** and hover effects
-- **Element Highlighting** on the page during recording
-- **Responsive Layout** optimized for extension popup
+## Known Limitations
 
-## 🔧 Technical Details
+- Browser-internal pages such as `chrome://` cannot be recorded.
+- Events inside iframes may not always be captured.
+- Shadow DOM-heavy applications may need manual selector refinement.
+- Generated automation is intended as a strong starting point; assertions and data setup may still need manual refinement.
 
-### Permissions Required
-- `activeTab` - Access to current tab
-- `storage` - Persist recorded steps
-- `scripting` - Inject content scripts
-- `tabs` - Tab management
-- `<all_urls>` - Work on any website
+## Roadmap Ideas
 
-### Browser Compatibility
-- ✅ Google Chrome (Manifest V3)
-- ✅ Microsoft Edge (Chromium)
-- ✅ Brave Browser
-- ✅ Other Chromium-based browsers
+- Screenshot capture per recorded step.
+- Video recording for full sessions.
+- Assertion generation.
+- Selector preference settings.
+- Test grouping and suite management.
+- Import and replay recorded flows.
 
-### Storage
-- Uses `chrome.storage.local` for persistence
-- Steps are saved automatically
-- Survives browser restarts (if recording was stopped)
-
-## 📝 Example Use Cases
-
-### 1. QA Testing Documentation
-Record manual test cases and export as CSV for test case management tools.
-
-### 2. Test Automation Development
-Quickly generate Playwright or Selenium test skeletons, then refine with assertions and validations.
-
-### 3. Bug Reporting
-Record reproduction steps and export as JSON or manual test case for bug reports.
-
-### 4. BDD Scenarios
-Generate Gherkin feature files from user journeys for behavior-driven development.
-
-## 🐛 Troubleshooting
-
-### Extension Not Working
-1. Refresh the page you're testing on
-2. Reload the extension from `chrome://extensions/`
-3. Check browser console for errors (F12)
-
-### Steps Not Recording
-1. Ensure "Start Recording" was clicked
-2. Check that the recording indicator is blinking red
-3. Try clicking "Stop" then "Start" again
-
-### Export Not Working
-1. Ensure you have recorded steps
-2. Check browser's download settings
-3. Try a different export format
-
-### Content Script Not Injecting
-1. Some pages (chrome://, chrome-extension://) block content scripts
-2. Refresh the page after starting recording
-3. Check extension permissions
-
-## 🚧 Known Limitations
-
-1. **Screenshot Capture**: Currently placeholder - full implementation would require html2canvas library
-2. **iFrames**: Events inside iframes may not be captured
-3. **Shadow DOM**: Elements in shadow DOM may have limited selector generation
-4. **Dynamic Content**: Selectors for dynamically generated content may need manual refinement
-
-## 🔮 Future Enhancements
-
-- [ ] Screenshot capture for each step
-- [ ] Video recording of entire test session
-- [ ] Assertion generation
-- [ ] Custom selector preferences
-- [ ] Test step grouping
-- [ ] Import existing tests
-- [ ] Cloud sync for recorded tests
-
-## 📄 License
+## License
 
 This project is provided as-is for educational and professional use.
-
-## 🤝 Contributing
-
-Feel free to submit issues, fork the repository, and create pull requests for any improvements.
-
-## 📧 Support
-
-For issues or questions, please create an issue in the repository.
-
----
-
-**Built with ❤️ for QA Engineers and Test Automation Developers**
